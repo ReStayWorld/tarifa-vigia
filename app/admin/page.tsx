@@ -1,0 +1,176 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import LoginForm from "@/components/LoginForm";
+import { BRAND, SERPAPI_MONTHLY_LIMIT } from "@/lib/config";
+import { ahorroPct, diasHasta, fecha, fechaHora, plata } from "@/lib/format";
+import { store } from "@/lib/store";
+import { busquedasDelMes } from "@/lib/vigia";
+import { chequearTodo, chequearUna, esAdmin, salir } from "./actions";
+
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: `Panel · ${BRAND}`, robots: { index: false } };
+
+const pctDe = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+
+export default async function Admin() {
+  if (!(await esAdmin())) {
+    return (
+      <main className="wrap" style={{ paddingBlock: "24px 48px" }}>
+        <LoginForm />
+      </main>
+    );
+  }
+
+  const db = store();
+  const [reservas, chequeos, busquedas] = await Promise.all([db.reservas(), db.chequeos(), busquedasDelMes()]);
+
+  // Métricas del experimento (sección 7.2 del Obligatorio 2).
+  const chequeadas = new Set(chequeos.filter((c) => c.precio != null).map((c) => c.reserva_id));
+  const con10 = new Set(chequeos.filter((c) => (c.ahorro_pct ?? 0) >= 10).map((c) => c.reserva_id));
+  const alertadas = reservas.filter((r) => r.ultima_alerta_at);
+  const cambiadas = reservas.filter((r) => r.estado === "cambiada");
+  const calificaron = reservas.filter((r) => r.confianza != null);
+  const confiables = calificaron.filter((r) => (r.confianza ?? 0) >= 4);
+  const ahorroTotal = cambiadas.reduce((s, r) => s + (r.precio_nuevo != null ? r.precio_pagado - r.precio_nuevo : 0), 0);
+  const porVariante = (v: string) => reservas.filter((r) => r.variante === v).length;
+
+  return (
+    <main className="wrap" style={{ display: "grid", gap: 24, paddingBlock: "8px 48px" }}>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h1 style={{ fontSize: "clamp(28px, 5vw, 40px)" }}>Panel del equipo</h1>
+        <div className="row">
+          <form action={chequearTodo}>
+            <button className="btn small" type="submit">
+              Chequear todas ahora
+            </button>
+          </form>
+          <form action={salir}>
+            <button className="btn ghost small" type="submit">
+              Salir
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="stats">
+        <div className="stat">
+          <b>{reservas.length}</b>
+          <span>
+            Reservas registradas (SH2) · A: {porVariante("a")} · B: {porVariante("b")}
+          </span>
+        </div>
+        <div className="stat">
+          <b>{pctDe(con10.size, chequeadas.size)}</b>
+          <span>
+            Con ahorro ≥ 10% (SH1) · {con10.size} de {chequeadas.size}
+          </span>
+        </div>
+        <div className="stat">
+          <b>{alertadas.length}</b>
+          <span>Reservas alertadas</span>
+        </div>
+        <div className="stat">
+          <b>{pctDe(cambiadas.length, alertadas.length)}</b>
+          <span>
+            Cambiaron la reserva (SH5) · {cambiadas.length} de {alertadas.length}
+          </span>
+        </div>
+        <div className="stat">
+          <b>{pctDe(confiables.length, calificaron.length)}</b>
+          <span>
+            Confianza 4 o 5 (SH4) · n = {calificaron.length}
+          </span>
+        </div>
+        <div className="stat">
+          <b>{plata(ahorroTotal, "USD")}</b>
+          <span>Ahorro logrado (solo reservas en US$)</span>
+        </div>
+        <div className="stat">
+          <b>
+            {busquedas}/{SERPAPI_MONTHLY_LIMIT}
+          </b>
+          <span>Búsquedas de precios usadas este mes</span>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Reserva</th>
+              <th>Pagó</th>
+              <th>Hoy</th>
+              <th>Ahorro</th>
+              <th>Cancela gratis</th>
+              <th>Estado</th>
+              <th>Respuesta</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {reservas.length === 0 && (
+              <tr>
+                <td colSpan={8} className="muted">
+                  Todavía no hay reservas. Compartí la página principal (/?v=a o /?v=b) para empezar.
+                </td>
+              </tr>
+            )}
+            {reservas.map((r) => {
+              const pct = ahorroPct(r.precio_pagado, r.precio_actual);
+              const dias = diasHasta(r.cancelacion_hasta);
+              return (
+                <tr key={r.id}>
+                  <td>
+                    <Link href={`/r/${r.token}`}>
+                      <b>{r.hotel}</b>
+                    </Link>
+                    <div className="muted">
+                      {r.ciudad} · {fecha(r.check_in)}–{fecha(r.check_out)} · {r.plataforma}
+                    </div>
+                    <div className="muted">
+                      {r.email}
+                      {r.whatsapp ? ` · ${r.whatsapp}` : ""}
+                    </div>
+                  </td>
+                  <td className="num">{plata(r.precio_pagado, r.moneda)}</td>
+                  <td className="num">
+                    {plata(r.precio_actual, r.moneda)}
+                    <div className="muted">{r.fuente_actual ?? ""}</div>
+                    <div className="muted">{fechaHora(r.ultimo_chequeo)}</div>
+                  </td>
+                  <td className="num">
+                    {pct == null ? "—" : <span className={`pill ${pct >= 5 ? "drop" : "neutral"}`}>{pct}%</span>}
+                  </td>
+                  <td className="num">
+                    {fecha(r.cancelacion_hasta)}
+                    <div>
+                      <span className={`pill ${dias <= 2 ? "warn" : "neutral"}`}>{dias < 0 ? "vencida" : `${dias} d`}</span>
+                    </div>
+                  </td>
+                  <td>
+                    {r.estado}
+                    {r.ultima_alerta_at && <div className="muted">Alerta {fechaHora(r.ultima_alerta_at)}</div>}
+                  </td>
+                  <td>
+                    {r.respuesta === "cambie" ? `Cambió${r.precio_nuevo ? ` a ${plata(r.precio_nuevo, r.moneda)}` : ""}` : r.respuesta === "no_cambio" ? "No cambia" : "—"}
+                    {r.confianza != null && <div className="muted">Confianza {r.confianza}/5</div>}
+                    {r.motivo && <div className="muted">“{r.motivo}”</div>}
+                  </td>
+                  <td>
+                    {r.estado === "activa" && (
+                      <form action={chequearUna.bind(null, r.id)}>
+                        <button className="btn ghost small" type="submit">
+                          Chequear
+                        </button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  );
+}
