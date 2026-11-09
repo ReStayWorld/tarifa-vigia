@@ -22,7 +22,9 @@ const REGLAS: [Categoria, RegExp][] = [
   ["junior_suite", /\b(junior suite|suite junior|jr\.? suite|mini suite)\b/],
   ["suite", /\bsuite\b/],
   ["villa", /\b(villa|bungalow|cabin|cabana|chalet|cottage)\b/],
-  ["apartamento", /\b(apartment|apartamento|apto|flat|studio|estudio|loft)\b/],
+  // En Brasil "apartamento" es una habitación común de hotel ("Apartamento Standard"):
+  // solo cuenta como apartamento si dice estudio, loft, cocina o cantidad de dormitorios.
+  ["apartamento", /\b(studio|estudio|loft|flat|kitchenette|cocina|cozinha|(one|two|three|1|2|3)[- ]?bed ?rooms?)\b/],
   ["familiar", /\b(family|familiar|quadruple|cuadruple)\b/],
   ["deluxe", /\b(deluxe|de luxe|lujo|luxury)\b/],
   ["superior", /\b(superior|premium|executive|ejecutiv[ao]|club|comfort|confort)\b/],
