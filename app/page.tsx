@@ -1,6 +1,7 @@
 import RegistroForm from "@/components/RegistroForm";
 import { ALERT_MIN_PCT } from "@/lib/config";
 import { hoy } from "@/lib/format";
+import { paises } from "@/lib/paises";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +72,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ v
           <ol className="steps">
             <li>
               <h3>Cargás tu reserva</h3>
-              <p>Hotel, fechas, cuánto pagaste y hasta cuándo podés cancelar gratis. No te pedimos claves.</p>
+              <p>Elegís tu hotel y tu tipo de habitación de la lista, cuánto pagaste y hasta cuándo podés cancelar gratis. No te pedimos claves.</p>
             </li>
             <li>
               <h3>Vigilamos el precio</h3>
-              <p>Cada 48 horas comparamos la misma estadía en Google Hotels, Booking, Expedia y el sitio del hotel.</p>
+              <p>Varias veces por día buscamos tu misma categoría de habitación, con cancelación gratis, y miramos cuánto está el hotel en Agoda, Booking y otras webs.</p>
             </li>
             <li>
               <h3>Te avisamos a tiempo</h3>
@@ -94,7 +95,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ v
               Tarda un minuto. Tené a mano el mail de confirmación.
             </p>
           </div>
-          <RegistroForm variante={variante} hoy={hoy()} />
+          <RegistroForm variante={variante} hoy={hoy()} paises={paises()} />
         </section>
       </div>
     </main>

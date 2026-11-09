@@ -6,13 +6,18 @@ Web del piloto de Nuevos Emprendimientos (ORT). El viajero registra su reserva: 
 
 | Ruta | Para quién | Qué hace |
 |---|---|---|
-| `/` | Viajeros | Landing y formulario de registro. `/?v=a` muestra el mensaje de ahorro y `/?v=b` el de tranquilidad (test A/B 1). |
-| `/r/<código>` | Viajero | Su reserva: precio pagado y precio de hoy, cuántos días le quedan para cancelar gratis, la alerta, el historial y el formulario "¿Qué hiciste con la alerta?" (mide SH4 y SH5). Le llega por mail. |
-| `/admin` | Equipo | Métricas del experimento (SH1, SH2, SH4, SH5, test A/B), todas las reservas y botones para chequear a mano. |
-| `/api/cron` | Vercel | Lo llama el cron todos los días a las 9:00 de Uruguay. Chequea cada reserva que no se revisó en las últimas 48 h. |
+| `/` | Viajeros | Landing y registro. El hotel se elige de una lista (país + buscador) y la habitación de las categorías que ese hotel tiene de verdad para esas fechas. `/?v=a` y `/?v=b` son el test A/B de mensajes. |
+| `/r/<código>` | Viajero | Su reserva: lo que pagó, el precio de hoy de su misma categoría, días para cancelar gratis, el hotel en otras webs, historial y "¿Qué hiciste con la alerta?". |
+| `/admin` | Equipo | Métricas del experimento y todas las reservas. |
+| `/api/cron` | Cron | Chequea las reservas que no se revisaron en las últimas `CHECK_EVERY_HOURS` horas. |
+| `/api/hoteles`, `/api/categorias` | Formulario | Buscador de hoteles y categorías de habitación. |
 
-Reglas (se cambian en las variables de entorno):
-- Alerta si el ahorro llega al menos a `ALERT_MIN_PCT` (5%) y la oferta no dice que no tiene cancelación gratis.
+De dónde salen los datos:
+- **LiteAPI** (gratis para consultar): catálogo mundial de hoteles y tarifas por habitación con su política de cancelación. Comparamos solo la **misma categoría** (Estándar, Superior, Deluxe, Junior Suite, Suite, Familiar, Apartamento, Villa, Compartida) y solo tarifas con **cancelación gratis**. La categoría sale del nombre de la habitación (`lib/categorias.ts`).
+- **Xotelo** (gratis, sin clave): precio más barato del hotel en Agoda, Booking.com, Trip.com, etc. Se muestra como referencia. Para encontrar el hotel en Xotelo hace falta `XOTELO_RAPIDAPI_KEY`; sin ella esa sección no aparece.
+
+Reglas:
+- Alerta si la misma categoría con cancelación gratis está al menos `ALERT_MIN_PCT` (5%) más barata que lo pagado.
 - No repite la alerta salvo que el precio baje al menos 2% más.
 - Dos días antes de que venza la cancelación gratis manda un recordatorio (si nunca hubo alerta).
 - Cuando vence la cancelación gratis, deja de vigilar la reserva.
@@ -31,35 +36,20 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Sin claves configuradas funciona en **modo demo**: los datos se guardan en `.data/db.json`, los precios se simulan (entre −18% y +8% del precio pagado) y los mails se muestran en la terminal. La clave del panel es la de `ADMIN_PASSWORD` en `.env.local`.
+Sin claves configuradas funciona en **modo demo**: los datos se guardan en `.data/db.json`, los hoteles y las tarifas se simulan (probá con "Castelmar" en Brasil, que además trae precios reales de Xotelo) y los mails se muestran en la terminal. La clave del panel es la de `ADMIN_PASSWORD` en `.env.local`.
 
-## Pasar a producción (todo gratis)
+## Producción
 
-Las cuentas las tiene que crear una persona del equipo: Claude no crea cuentas ni maneja claves. Conviene usar una sola cuenta de Gmail del equipo para todo. Son cinco pasos de unos 5 minutos cada uno:
+Ya está en https://tarifa-vigia.vercel.app (Vercel + Supabase, cuenta ReStayWorld). Para esta versión:
 
-1. **GitHub** (github.com, gratis). Crear un repositorio privado `tarifa-vigia` y subir esta carpeta.
-2. **Supabase** (supabase.com, plan Free). *New project*, región São Paulo. Abrir *SQL Editor*, pegar `supabase/schema.sql` y apretar *Run*. Copiar la *Project URL* y la *service_role key* (en *Project Settings → API*). El plan gratis pausa el proyecto si pasa una semana sin uso; el chequeo diario lo mantiene activo.
-3. **SerpApi** (serpapi.com, plan Free: 250 búsquedas por mes). Copiar la *API key*. El sistema guarda el hotel después de la primera búsqueda, así que cada chequeo usa 1 búsqueda. Además corta solo al llegar a 240 en el mes, para no pasarse nunca del plan gratis.
-4. **Gmail para los mails** (gratis, hasta 500 por día). En la cuenta de Google: activar la verificación en dos pasos y crear una *contraseña de aplicación* en myaccount.google.com/apppasswords.
-5. **Vercel** (vercel.com, plan Hobby, entrar con GitHub). *Add New → Project*, elegir el repositorio y, antes de *Deploy*, cargar estas variables:
-
-| Variable | Valor |
-|---|---|
-| `SUPABASE_URL` | Project URL de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key de Supabase |
-| `PRICE_PROVIDER` | `serpapi` |
-| `SERPAPI_KEY` | API key de SerpApi |
-| `GMAIL_USER` | el Gmail que manda las alertas |
-| `GMAIL_APP_PASSWORD` | la contraseña de aplicación (16 letras) |
-| `ADMIN_PASSWORD` | una clave fuerte para el panel del equipo |
-| `CRON_SECRET` | un texto largo al azar |
-| `BASE_URL` | la dirección que da Vercel, por ejemplo `https://tarifa-vigia.vercel.app` (cargarla después del primer deploy y redeployar) |
-
-**Cuánto alcanza el plan gratis de SerpApi:** con chequeos cada 48 h, cada reserva gasta unas 15 búsquedas por mes. Las 240 búsquedas alcanzan para unas 15 reservas a la vez, que es el mínimo del piloto. Para llegar a 30 reservas, poner `CHECK_EVERY_HOURS=96` (cada 4 días) o pasar al plan pago.
+1. **Supabase → SQL Editor:** correr `supabase/migracion-002-categorias.sql` una vez.
+2. **LiteAPI** (liteapi.travel, con restayworld@gmail.com): copiar la clave de *API Keys*. La de prueba (*sandbox*) es gratis; la de producción pide cargar una tarjeta, pero consultar precios no se cobra.
+3. **Vercel → Environment Variables:** `LITEAPI_KEY` (Secret) y `CHECK_EVERY_HOURS=2` (Config). Opcional: `XOTELO_RAPIDAPI_KEY` (Secret) y `LITEAPI_BOOKING_URL` (Config).
+4. **Chequeo cada hora:** Vercel gratis corre el cron una vez por día. Para más seguido, crear una tarea en **cron-job.org** (gratis) que llame cada hora a `https://tarifa-vigia.vercel.app/api/cron` con el encabezado `Authorization: Bearer <CRON_SECRET>`.
 
 ## Límites conocidos
 
-- Google Hotels da el precio más bajo del hotel para esas fechas y esa cantidad de huéspedes, pero no siempre del mismo tipo de habitación. Por eso la alerta le pide al viajero que confirme la habitación y los servicios antes de reservar. El equipo puede revisar cada caso desde el panel.
-- No todas las fuentes informan la política de cancelación. Cuando no la informan, la alerta lo dice.
-- Las alertas van por mail (Gmail). Para mandarlas por WhatsApp hace falta la API de WhatsApp Business (por ejemplo, con Twilio), que es paga y requiere aprobar las plantillas de mensaje.
-- La integración con SerpApi está escrita pero no se probó con una clave real.
+- Comparamos la **misma categoría**, no la habitación exacta: dos suites del mismo hotel pueden diferir en vista o camas. La alerta lo avisa.
+- El precio de LiteAPI es el de LiteAPI, no el de Agoda o Booking. El de Xotelo sí es el de cada web, pero es la habitación más barata del hotel y no aclara impuestos.
+- Las alertas van por mail (Gmail). WhatsApp necesita la API paga de WhatsApp Business.
+- LiteAPI y la búsqueda de Xotelo por RapidAPI todavía no se probaron con claves reales.

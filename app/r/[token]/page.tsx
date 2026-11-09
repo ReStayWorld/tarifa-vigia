@@ -29,6 +29,7 @@ export default async function MiReserva({
   const r = await db.reservaPorToken(token);
   if (!r) notFound();
   const historial = await db.chequeos(r.id);
+  const webs = historial[0]?.detalle?.webs ?? [];
 
   const pct = ahorroPct(r.precio_pagado, r.precio_actual);
   const dias = diasHasta(r.cancelacion_hasta);
@@ -53,7 +54,7 @@ export default async function MiReserva({
             <div>
               <div className="ticket-hotel">{r.hotel}</div>
               <div className="ticket-sub">
-                {r.ciudad} · {fecha(r.check_in)} al {fecha(r.check_out)} · {noches(r.check_in, r.check_out)} noches ·{" "}
+                {r.ciudad} · {fecha(r.check_in)} al {fecha(r.check_out)} · {noches(r.check_in, r.check_out)} noches · {r.huespedes} adultos ·{" "}
                 {r.habitacion}
               </div>
             </div>
@@ -69,7 +70,7 @@ export default async function MiReserva({
               <div className={`price ${hayAlerta ? "old" : ""}`}>{plata(r.precio_pagado, r.moneda)}</div>
             </div>
             <div>
-              <div className="price-label">Hoy{r.fuente_actual ? ` en ${r.fuente_actual}` : ""}</div>
+              <div className="price-label">Hoy, misma categoría</div>
               <div className={`price ${hayAlerta ? "new" : ""}`}>{plata(r.precio_actual, r.moneda)}</div>
             </div>
           </div>
@@ -91,14 +92,14 @@ export default async function MiReserva({
         <section className="panel alert-panel">
           <h2>Podés ahorrar {plata(ahorro, r.moneda)}</h2>
           <p style={{ margin: 0 }}>
-            Encontramos tu misma estadía a {plata(r.precio_actual, r.moneda)}
-            {r.fuente_actual ? ` en ${r.fuente_actual}` : ""}.{" "}
+            Encontramos tu misma categoría ({r.habitacion}) a {plata(r.precio_actual, r.moneda)}
+            {r.fuente_actual ? `: ${r.fuente_actual}` : ""}.{" "}
             {r.cancelacion_gratis_actual === true
               ? "La oferta también tiene cancelación gratis."
               : "Revisá la política de cancelación de la oferta antes de reservar."}
           </p>
           <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
-            <li>Reservá la nueva opción y revisá que sea la misma habitación y los mismos servicios.</li>
+            <li>Reservá la nueva opción y revisá vista, camas y desayuno: es la misma categoría, no necesariamente la misma habitación.</li>
             <li>Confirmá que la nueva reserva quedó confirmada.</li>
             <li>
               Cancelá tu reserva anterior en {r.plataforma} antes del <b>{fecha(r.cancelacion_hasta)}</b>.
@@ -158,6 +159,22 @@ export default async function MiReserva({
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {webs.length > 0 && (
+        <section className="panel">
+          <h3>El hotel en otras webs</h3>
+          <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+            Precio más barato del hotel en cada web para tus fechas. Puede ser otra categoría de habitación.
+          </p>
+          <div className="webs">
+            {webs.map((w) => (
+              <span key={w.web} className="pill neutral">
+                {w.web} <span className="mono">{plata(w.total, r.moneda)}</span>
+              </span>
+            ))}
+          </div>
         </section>
       )}
 

@@ -5,11 +5,15 @@ create table if not exists reservas (
   token text unique not null,
   created_at timestamptz not null default now(),
   hotel text not null,
+  hotel_id text,
+  xotelo_key text,
+  pais text,
   ciudad text not null,
   check_in date not null,
   check_out date not null,
   huespedes int not null default 2,
   habitacion text not null,
+  categoria text,
   plataforma text not null,
   precio_pagado numeric not null,
   moneda text not null check (moneda in ('USD', 'UYU')),
@@ -45,7 +49,8 @@ create table if not exists chequeos (
   ahorro_pct numeric,
   alerta boolean not null default false,
   nota text,
-  busquedas int not null default 0
+  busquedas int not null default 0,
+  detalle jsonb
 );
 
 create index if not exists chequeos_reserva_idx on chequeos (reserva_id, created_at desc);

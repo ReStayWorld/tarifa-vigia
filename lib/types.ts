@@ -9,11 +9,15 @@ export interface Reserva {
   token: string;
   created_at: string;
   hotel: string;
+  hotel_id: string; // id del hotel en LiteAPI
+  xotelo_key: string | null; // id del hotel en Xotelo (TripAdvisor), para precios por web
+  pais: string; // ISO-2
   ciudad: string;
   check_in: string; // YYYY-MM-DD
   check_out: string;
   huespedes: number;
-  habitacion: string;
+  habitacion: string; // nombre de la categoría, para mostrar
+  categoria: string; // clave de lib/categorias.ts
   plataforma: string;
   precio_pagado: number; // total de la estadía
   moneda: Moneda;
@@ -49,7 +53,8 @@ export interface Chequeo {
   ahorro_pct: number | null;
   alerta: boolean;
   nota: string | null;
-  busquedas: number; // búsquedas de SerpApi gastadas en este chequeo
+  busquedas: number;
+  detalle: { webs?: { web: string; total: number }[]; habitacion?: string } | null;
 }
 
 export type NuevaReserva = Omit<

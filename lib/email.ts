@@ -1,6 +1,7 @@
 import "server-only";
 import { BASE_URL, BRAND } from "./config";
 import { fecha, plata } from "./format";
+import type { PrecioWeb, Tarifa } from "./proveedores";
 import type { Reserva } from "./types";
 
 type Mail = { to: string; subject: string; html: string; text: string };
@@ -71,33 +72,38 @@ export function mailBienvenida(r: Reserva): Mail {
   };
 }
 
-export function mailAlerta(r: Reserva, precio: number, fuente: string | null, linkOferta: string | null, cancelacionGratis: boolean | null): Mail {
+export function mailAlerta(r: Reserva, t: Tarifa, linkOferta: string, webs: PrecioWeb[]): Mail {
+  const precio = t.total;
   const ahorro = r.precio_pagado - precio;
   const pct = Math.round((ahorro / r.precio_pagado) * 100);
   const link = `${BASE_URL}/r/${r.token}`;
-  const cancel =
-    cancelacionGratis === true
-      ? `Cancelación gratis`
-      : `Verificá la política de cancelación antes de reservar`;
+  const cancel = t.cancelacionHasta ? `Gratis hasta el ${fecha(t.cancelacionHasta)}` : "Cancelación gratis";
   const fila = (a: string, b: string, c: string) =>
     `<tr><td style="padding:8px;border-top:1px solid #dfe7e5;color:#4d6b65">${a}</td><td style="padding:8px;border-top:1px solid #dfe7e5">${b}</td><td style="padding:8px;border-top:1px solid #dfe7e5"><b>${c}</b></td></tr>`;
+  const referencia = webs.length
+    ? `<p style="line-height:1.5;font-size:13px;color:#4d6b65">Como referencia, el hotel hoy está desde ${webs
+        .slice(0, 4)
+        .map((w) => `${esc(w.web)} ${plata(w.total, r.moneda)}`)
+        .join(" · ")} (habitación más barata de cada web, puede no ser tu categoría).</p>`
+    : "";
   return {
     to: r.email,
     subject: `Bajó tu hotel: ahorrá ${plata(ahorro, r.moneda)} en ${r.hotel}`,
-    text: `Encontramos un precio menor para tu reserva en ${r.hotel}, del ${fecha(r.check_in)} al ${fecha(r.check_out)}: pagaste ${plata(r.precio_pagado, r.moneda)} y hoy figura a ${plata(precio, r.moneda)}${fuente ? ` en ${fuente}` : ""} (ahorro de ${plata(ahorro, r.moneda)}, ${pct}%). Podés cancelar sin costo hasta el ${fecha(r.cancelacion_hasta)}. Cómo cambiar: 1) reservá la nueva opción; 2) confirmá que quedó confirmada; 3) cancelá la reserva anterior antes del ${fecha(r.cancelacion_hasta)}. Ver oferta: ${linkOferta ?? link}. Tu reserva: ${link}. La decisión es tuya.`,
+    text: `Encontramos tu misma categoría de habitación (${r.habitacion}) más barata en ${r.hotel}, del ${fecha(r.check_in)} al ${fecha(r.check_out)}: pagaste ${plata(r.precio_pagado, r.moneda)} y hoy está a ${plata(precio, r.moneda)} (${t.nombre}, ahorro de ${plata(ahorro, r.moneda)}, ${pct}%), con cancelación gratis. Podés cancelar tu reserva actual sin costo hasta el ${fecha(r.cancelacion_hasta)}. Cómo cambiar: 1) reservá la nueva opción; 2) confirmá que quedó confirmada; 3) cancelá la reserva anterior antes del ${fecha(r.cancelacion_hasta)}. Ver oferta: ${linkOferta}. Tu reserva: ${link}. La decisión es tuya.`,
     html: marco(
       `Bajó el precio: podés ahorrar ${plata(ahorro, r.moneda)} (${pct}%)`,
       `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">
 <tr><td></td><td style="padding:8px;color:#4d6b65">Tu reserva</td><td style="padding:8px;color:#4d6b65">Opción encontrada</td></tr>
 ${fila("Hotel y fechas", `${esc(r.hotel)}, ${fecha(r.check_in)}–${fecha(r.check_out)}`, "Mismas")}
-${fila("Habitación", esc(r.habitacion), "Misma búsqueda")}
+${fila("Habitación", esc(r.habitacion), esc(t.nombre))}
+${fila("Régimen", "—", esc(t.regimen ?? "—"))}
 ${fila("Cancelación", `Gratis hasta el ${fecha(r.cancelacion_hasta)}`, cancel)}
-${fila("Dónde", esc(r.plataforma), esc(fuente ?? "—"))}
 ${fila("Precio total", plata(r.precio_pagado, r.moneda), plata(precio, r.moneda))}
 </table>
 <p style="line-height:1.5"><b>Cómo cambiar:</b> (1) reservá la nueva opción; (2) confirmá que la reserva quedó confirmada; (3) cancelá la reserva anterior antes del <b>${fecha(r.cancelacion_hasta)}</b>.</p>
-<p style="line-height:1.5;font-size:13px;color:#4d6b65">Antes de reservar, revisá que sea el mismo tipo de habitación y los mismos servicios.</p>
-<p>${linkOferta ? boton(linkOferta, "Ver la oferta") : ""} &nbsp; <a href="${link}" style="color:#13302b">Contanos qué hiciste</a></p>`,
+<p style="line-height:1.5;font-size:13px;color:#4d6b65">Es la misma categoría, no necesariamente la misma habitación: revisá vista, camas y desayuno antes de reservar.</p>
+${referencia}
+<p>${boton(linkOferta, "Ver la oferta")} &nbsp; <a href="${link}" style="color:#13302b">Contanos qué hiciste</a></p>`,
     ),
   };
 }

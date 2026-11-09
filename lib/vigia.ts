@@ -1,8 +1,8 @@
 import "server-only";
-import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, REMINDER_DAYS, SERPAPI_MONTHLY_LIMIT } from "./config";
+import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, REMINDER_DAYS } from "./config";
 import { enviar, mailAlerta, mailRecordatorio } from "./email";
 import { ahorroPct, diasHasta } from "./format";
-import { cotizar } from "./prices";
+import { modoDemo, preciosPorWeb, tarifas } from "./proveedores";
 import { store } from "./store";
 import type { Reserva } from "./types";
 
@@ -13,7 +13,17 @@ export type Resultado = {
   detalle?: string;
 };
 
-/** Chequea una reserva: busca el precio, lo guarda y manda alerta o recordatorio si corresponde. */
+/** Link para que el viajero vea la oferta. Con LITEAPI_BOOKING_URL (sitio de reservas de LiteAPI) va directo al hotel. */
+export function linkOferta(r: Reserva): string {
+  const base = process.env.LITEAPI_BOOKING_URL?.replace(/\/$/, "");
+  if (base && r.hotel_id) {
+    const p = new URLSearchParams({ checkin: r.check_in, checkout: r.check_out, adults: String(r.huespedes) });
+    return `${base}/hotels/${r.hotel_id}?${p}`;
+  }
+  return "https://www.google.com/travel/search?q=" + encodeURIComponent(`${r.hotel} ${r.ciudad}`);
+}
+
+/** Chequea una reserva: busca la misma categoría con cancelación gratis, la guarda y avisa si corresponde. */
 export async function chequearReserva(r: Reserva, forzar = false): Promise<Resultado> {
   const db = store();
   const base = { reserva: r.id, hotel: r.hotel };
@@ -27,49 +37,62 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
   }
 
   const horas = r.ultimo_chequeo ? (Date.now() - Date.parse(r.ultimo_chequeo)) / 3_600_000 : Infinity;
-  // Margen de 1 h para que un cron diario no se saltee el chequeo de las 48 h.
-  if (!forzar && horas < CHECK_EVERY_HOURS - 1) {
-    return { ...base, accion: "salteada", detalle: `Último chequeo hace ${Math.round(horas)} h` };
+  // Margen (10% del intervalo) para que un cron que corre justo a la hora no se saltee un chequeo.
+  if (!forzar && horas < CHECK_EVERY_HOURS * 0.9) {
+    return { ...base, accion: "salteada", detalle: `Último chequeo hace ${horas.toFixed(1)} h` };
   }
-
-  if (process.env.PRICE_PROVIDER === "serpapi" && (await busquedasDelMes()) >= SERPAPI_MONTHLY_LIMIT) {
-    return { ...base, accion: "salteada", detalle: `Se llegó al tope de ${SERPAPI_MONTHLY_LIMIT} búsquedas del mes` };
+  if (!r.hotel_id || !r.categoria) {
+    return { ...base, accion: "salteada", detalle: "Reserva anterior al cambio: falta el hotel o la categoría" };
   }
 
   try {
-    const c = await cotizar(r);
-    const pct = ahorroPct(r.precio_pagado, c.precio);
+    const consulta = { checkIn: r.check_in, checkOut: r.check_out, adultos: r.huespedes, moneda: r.moneda };
+    const [todas, webs] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
+
+    // Regla del MVP: misma categoría y cancelación gratis (igual o mejor que la reserva original).
+    const elegibles = todas.filter((t) => t.categoria === r.categoria && t.cancelacionGratis).sort((a, b) => a.total - b.total);
+    const mejor = elegibles[0] ?? null;
+    const precio = mejor?.total ?? null;
+    const pct = ahorroPct(r.precio_pagado, precio);
     const ahora = new Date().toISOString();
 
     // No repetimos la alerta salvo que el precio baje al menos 2% más que la última avisada.
-    const yaAvisado = r.ultima_alerta_precio != null && c.precio != null && c.precio > r.ultima_alerta_precio * 0.98;
-    const corresponde = c.precio != null && pct != null && pct >= ALERT_MIN_PCT && c.cancelacionGratis !== false && !yaAvisado;
+    const yaAvisado = r.ultima_alerta_precio != null && precio != null && precio > r.ultima_alerta_precio * 0.98;
+    const corresponde = precio != null && pct != null && pct >= ALERT_MIN_PCT && !yaAvisado;
+
+    const nota = !todas.length
+      ? "Sin disponibilidad para esas fechas"
+      : !mejor
+        ? `No hay ${r.habitacion} con cancelación gratis disponible`
+        : modoDemo()
+          ? "Precio simulado (modo demo)"
+          : null;
 
     await db.agregarChequeo({
       reserva_id: r.id,
-      precio: c.precio,
-      fuente: c.fuente,
-      link: c.link,
-      cancelacion_gratis: c.cancelacionGratis,
+      precio,
+      fuente: mejor ? mejor.nombre : null,
+      link: mejor ? linkOferta(r) : null,
+      cancelacion_gratis: mejor ? true : null,
       ahorro_pct: pct,
       alerta: corresponde,
-      nota: c.nota,
-      busquedas: c.busquedas,
+      nota,
+      busquedas: 0,
+      detalle: { webs, habitacion: mejor?.nombre },
     });
 
     const cambios: Partial<Reserva> = {
       ultimo_chequeo: ahora,
-      precio_actual: c.precio,
-      fuente_actual: c.fuente,
-      link_actual: c.link,
-      cancelacion_gratis_actual: c.cancelacionGratis,
+      precio_actual: precio,
+      fuente_actual: mejor ? `${mejor.nombre}${mejor.regimen ? ` · ${mejor.regimen}` : ""}` : null,
+      link_actual: mejor ? linkOferta(r) : null,
+      cancelacion_gratis_actual: mejor ? true : null,
     };
-    if (c.propertyToken && c.propertyToken !== r.property_token) cambios.property_token = c.propertyToken;
 
     let accion: Resultado["accion"] = "chequeada";
     if (corresponde) {
-      await enviar(mailAlerta(r, c.precio!, c.fuente, c.link, c.cancelacionGratis));
-      cambios.ultima_alerta_precio = c.precio;
+      await enviar(mailAlerta(r, mejor!, linkOferta(r), webs));
+      cambios.ultima_alerta_precio = precio;
       cambios.ultima_alerta_at = ahora;
       accion = "alerta";
     } else if (dias <= REMINDER_DAYS && !r.recordatorio_enviado && r.ultima_alerta_at == null) {
@@ -79,21 +102,13 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     }
 
     await db.actualizarReserva(r.id, cambios);
-    return { ...base, accion, detalle: pct == null ? c.nota ?? "Sin precio" : `${pct}% de ahorro` };
+    return { ...base, accion, detalle: pct == null ? nota ?? "Sin precio" : `${pct}% de ahorro` };
   } catch (e) {
     return { ...base, accion: "error", detalle: e instanceof Error ? e.message : String(e) };
   }
 }
 
-/** Búsquedas de SerpApi gastadas en el mes calendario actual. */
-export async function busquedasDelMes(): Promise<number> {
-  const mes = new Date().toISOString().slice(0, 7);
-  return (await store().chequeos())
-    .filter((c) => c.created_at.slice(0, 7) === mes)
-    .reduce((s, c) => s + (c.busquedas ?? 0), 0);
-}
-
-/** Corre el chequeo sobre todas las reservas activas, de a una para no saturar la API de precios. */
+/** Corre el chequeo sobre todas las reservas activas, de a una para no saturar a los proveedores. */
 export async function chequearTodas(): Promise<Resultado[]> {
   const activas = await store().reservas(true);
   const resultados: Resultado[] = [];

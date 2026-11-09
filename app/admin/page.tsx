@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import LoginForm from "@/components/LoginForm";
-import { BRAND, SERPAPI_MONTHLY_LIMIT } from "@/lib/config";
+import { BRAND, CHECK_EVERY_HOURS } from "@/lib/config";
 import { ahorroPct, diasHasta, fecha, fechaHora, plata } from "@/lib/format";
 import { store } from "@/lib/store";
-import { busquedasDelMes } from "@/lib/vigia";
+import { modoDemo } from "@/lib/proveedores";
 import { chequearTodo, chequearUna, esAdmin, salir } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function Admin() {
   }
 
   const db = store();
-  const [reservas, chequeos, busquedas] = await Promise.all([db.reservas(), db.chequeos(), busquedasDelMes()]);
+  const [reservas, chequeos] = await Promise.all([db.reservas(), db.chequeos()]);
 
   // Métricas del experimento (sección 7.2 del Obligatorio 2).
   const chequeadas = new Set(chequeos.filter((c) => c.precio != null).map((c) => c.reserva_id));
@@ -86,10 +86,8 @@ export default async function Admin() {
           <span>Ahorro logrado (solo reservas en US$)</span>
         </div>
         <div className="stat">
-          <b>
-            {busquedas}/{SERPAPI_MONTHLY_LIMIT}
-          </b>
-          <span>Búsquedas de precios usadas este mes</span>
+          <b>{modoDemo() ? "Demo" : "LiteAPI"}</b>
+          <span>Fuente de precios · chequeo cada {CHECK_EVERY_HOURS} h</span>
         </div>
       </div>
 
