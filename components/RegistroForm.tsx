@@ -22,6 +22,7 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
   const [categoria, setCategoria] = useState("");
 
   const [cats, setCats] = useState<OpcionCategoria[] | null>(null);
+  const [sinPrecios, setSinPrecios] = useState(false);
   const [catsCargando, setCatsCargando] = useState(false);
   const [catsError, setCatsError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
         const json = await res.json();
         if (!res.ok) throw new Error(json.error);
         setCats(json.categorias);
+        setSinPrecios(json.sinPrecios);
       } catch (e) {
         if (!ctrl.signal.aborted) setCatsError(e instanceof Error && e.message ? e.message : "No pudimos traer las habitaciones.");
       } finally {
@@ -110,9 +112,13 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
           </p>
         ) : catsError ? (
           <p className="error">{catsError}</p>
-        ) : cats && cats.length === 0 ? (
-          <p className="error">Ese hotel no tiene disponibilidad para esas fechas. Revisá las fechas y la cantidad de adultos.</p>
         ) : cats ? (
+          <>
+          {sinPrecios && (
+            <p className="muted" style={{ margin: 0 }}>
+              Hoy no conseguimos precios de este hotel para esas fechas. Igual podés registrarla: la seguimos vigilando y te avisamos si aparece más barata.
+            </p>
+          )}
           <div className="cats" role="radiogroup" aria-label="Categoría de habitación">
             {cats.map((c) => (
               <label key={c.categoria} className="cat">
@@ -120,11 +126,14 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
                 <span className="cat-body">
                   <b>{c.etiqueta}</b>
                   <span className="muted">{c.ejemplos.join(" · ")}</span>
-                  <span className="mono">{c.desde != null ? `hoy desde ${plata(c.desde, c.moneda)} con cancelación gratis` : "hoy sin cancelación gratis"}</span>
+                  {!sinPrecios && (
+                    <span className="mono">{c.desde != null ? `hoy desde ${plata(c.desde, c.moneda)} con cancelación gratis` : "hoy sin cancelación gratis"}</span>
+                  )}
                 </span>
               </label>
             ))}
           </div>
+          </>
         ) : null}
         <span className="hint">Comparamos siempre la misma categoría. Si reservaste una suite, te avisamos solo por suites.</span>
       </fieldset>

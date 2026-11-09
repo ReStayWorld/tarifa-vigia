@@ -2,9 +2,10 @@ import "server-only";
 import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, REMINDER_DAYS } from "./config";
 import { enviar, mailAlerta, mailRecordatorio } from "./email";
 import { ahorroPct, diasHasta } from "./format";
-import { modoDemo, preciosPorWeb, tarifas } from "./proveedores";
+import { modoDemo, preciosPorWeb, tarifas, type Oferta } from "./proveedores";
 import { store } from "./store";
 import type { Reserva } from "./types";
+import { linkWeb } from "./webs";
 
 export type Resultado = {
   reserva: string;
@@ -50,8 +51,33 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     const [todas, webs] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
 
     // Regla del MVP: misma categoría y cancelación gratis (igual o mejor que la reserva original).
-    const elegibles = todas.filter((t) => t.categoria === r.categoria && t.cancelacionGratis).sort((a, b) => a.total - b.total);
-    const mejor = elegibles[0] ?? null;
+    const ofertas: Oferta[] = todas
+      .filter((t) => t.categoria === r.categoria && t.cancelacionGratis)
+      .map((t) => ({
+        total: t.total,
+        donde: process.env.LITEAPI_BOOKING_URL ? "Nuestro sitio de reservas" : "Proveedor mayorista de hoteles (LiteAPI)",
+        link: linkOferta(r),
+        habitacion: t.nombre,
+        regimen: t.regimen,
+        cancelacionGratis: true,
+        cancelacionHasta: t.cancelacionHasta,
+      }));
+    // Las webs (Agoda, Booking...) informan solo la habitación más barata del hotel:
+    // sirven para comparar únicamente si la reserva es de categoría estándar.
+    if (r.categoria === "estandar") {
+      for (const w of webs) {
+        ofertas.push({
+          total: w.total,
+          donde: w.web,
+          link: linkWeb(w.web, r.hotel, r.ciudad, r.check_in, r.check_out, r.huespedes),
+          habitacion: null,
+          regimen: null,
+          cancelacionGratis: null,
+          cancelacionHasta: null,
+        });
+      }
+    }
+    const mejor = ofertas.sort((a, b) => a.total - b.total)[0] ?? null;
     const precio = mejor?.total ?? null;
     const pct = ahorroPct(r.precio_pagado, precio);
     const ahora = new Date().toISOString();
@@ -60,10 +86,12 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     const yaAvisado = r.ultima_alerta_precio != null && precio != null && precio > r.ultima_alerta_precio * 0.98;
     const corresponde = precio != null && pct != null && pct >= ALERT_MIN_PCT && !yaAvisado;
 
-    const nota = !todas.length
-      ? "Sin disponibilidad para esas fechas"
-      : !mejor
+    const nota = !mejor
+      ? todas.length
         ? `No hay ${r.habitacion} con cancelación gratis disponible`
+        : "Hoy no conseguimos precios de este hotel"
+      : mejor.cancelacionGratis === null
+        ? "Habitación más barata de la web: verificá categoría y cancelación"
         : modoDemo()
           ? "Precio simulado (modo demo)"
           : null;
@@ -71,27 +99,27 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     await db.agregarChequeo({
       reserva_id: r.id,
       precio,
-      fuente: mejor ? mejor.nombre : null,
-      link: mejor ? linkOferta(r) : null,
-      cancelacion_gratis: mejor ? true : null,
+      fuente: mejor ? [mejor.donde, mejor.habitacion].filter(Boolean).join(" · ") : null,
+      link: mejor?.link ?? null,
+      cancelacion_gratis: mejor?.cancelacionGratis ?? null,
       ahorro_pct: pct,
       alerta: corresponde,
       nota,
       busquedas: 0,
-      detalle: { webs, habitacion: mejor?.nombre },
+      detalle: { webs, habitacion: mejor?.habitacion ?? undefined },
     });
 
     const cambios: Partial<Reserva> = {
       ultimo_chequeo: ahora,
       precio_actual: precio,
-      fuente_actual: mejor ? `${mejor.nombre}${mejor.regimen ? ` · ${mejor.regimen}` : ""}` : null,
-      link_actual: mejor ? linkOferta(r) : null,
-      cancelacion_gratis_actual: mejor ? true : null,
+      fuente_actual: mejor ? [mejor.donde, mejor.habitacion, mejor.regimen].filter(Boolean).join(" · ") : null,
+      link_actual: mejor?.link ?? null,
+      cancelacion_gratis_actual: mejor?.cancelacionGratis ?? null,
     };
 
     let accion: Resultado["accion"] = "chequeada";
     if (corresponde) {
-      await enviar(mailAlerta(r, mejor!, linkOferta(r), webs));
+      await enviar(mailAlerta(r, mejor!, webs));
       cambios.ultima_alerta_precio = precio;
       cambios.ultima_alerta_at = ahora;
       accion = "alerta";

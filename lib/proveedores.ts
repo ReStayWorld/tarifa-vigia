@@ -29,6 +29,17 @@ export interface Tarifa {
   regimen: string | null; // "Solo alojamiento", "Desayuno incluido"...
 }
 
+/** La opción más barata encontrada en un chequeo, y dónde se puede reservar. */
+export interface Oferta {
+  total: number;
+  donde: string; // "Booking.com", "Agoda.com", "Nuestro sitio de reservas"...
+  link: string;
+  habitacion: string | null; // null cuando la web no informa la habitación
+  regimen: string | null;
+  cancelacionGratis: boolean | null; // null = la web no lo informa
+  cancelacionHasta: string | null;
+}
+
 export interface PrecioWeb {
   web: string;
   total: number; // total de la estadía (Xotelo da por noche; lo multiplicamos)
@@ -139,6 +150,15 @@ export async function tarifas(c: Consulta): Promise<Tarifa[]> {
     }
   }
   return salida;
+}
+
+/** Habitaciones del catálogo del hotel (sin precios). Sirve cuando hoy no hay tarifas. */
+export async function habitacionesCatalogo(hotelId: string): Promise<string[]> {
+  if (modoDemo()) return ["Standard Double Room", "Superior Room", "Junior Suite", "Suite"];
+  return conCache(`cat:${hotelId}`, 24 * 3_600_000, async () => {
+    const r = await lite<{ data?: { rooms?: { roomName?: string }[] } }>(`/data/hotel?${new URLSearchParams({ hotelId })}`);
+    return [...new Set((r.data?.rooms ?? []).map((x) => x.roomName?.trim()).filter((x): x is string => !!x))];
+  });
 }
 
 // ---------- Xotelo (precio por web) ----------

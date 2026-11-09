@@ -1,8 +1,9 @@
 import "server-only";
 import { BASE_URL, BRAND } from "./config";
 import { fecha, plata } from "./format";
-import type { PrecioWeb, Tarifa } from "./proveedores";
+import type { Oferta, PrecioWeb } from "./proveedores";
 import type { Reserva } from "./types";
+import { linkWeb } from "./webs";
 
 type Mail = { to: string; subject: string; html: string; text: string };
 
@@ -72,38 +73,46 @@ export function mailBienvenida(r: Reserva): Mail {
   };
 }
 
-export function mailAlerta(r: Reserva, t: Tarifa, linkOferta: string, webs: PrecioWeb[]): Mail {
-  const precio = t.total;
+export function mailAlerta(r: Reserva, o: Oferta, webs: PrecioWeb[]): Mail {
+  const precio = o.total;
   const ahorro = r.precio_pagado - precio;
   const pct = Math.round((ahorro / r.precio_pagado) * 100);
   const link = `${BASE_URL}/r/${r.token}`;
-  const cancel = t.cancelacionHasta ? `Gratis hasta el ${fecha(t.cancelacionHasta)}` : "Cancelación gratis";
+  const cancel =
+    o.cancelacionGratis === true
+      ? o.cancelacionHasta
+        ? `Gratis hasta el ${fecha(o.cancelacionHasta)}`
+        : "Cancelación gratis"
+      : "Verificá la política de cancelación antes de reservar";
   const fila = (a: string, b: string, c: string) =>
     `<tr><td style="padding:8px;border-top:1px solid #dfe7e5;color:#4d6b65">${a}</td><td style="padding:8px;border-top:1px solid #dfe7e5">${b}</td><td style="padding:8px;border-top:1px solid #dfe7e5"><b>${c}</b></td></tr>`;
-  const referencia = webs.length
-    ? `<p style="line-height:1.5;font-size:13px;color:#4d6b65">Como referencia, el hotel hoy está desde ${webs
-        .slice(0, 4)
-        .map((w) => `${esc(w.web)} ${plata(w.total, r.moneda)}`)
-        .join(" · ")} (habitación más barata de cada web, puede no ser tu categoría).</p>`
+  const enWebs = webs.length
+    ? `<p style="line-height:1.5;margin:16px 0 6px"><b>El hotel hoy en cada web</b> <span style="color:#4d6b65;font-size:13px">(habitación más barata, puede no ser tu categoría)</span></p>
+<ul style="margin:0 0 16px;padding-left:18px;line-height:1.7">${webs
+        .map((w) => `<li><a href="${linkWeb(w.web, r.hotel, r.ciudad, r.check_in, r.check_out, r.huespedes)}" style="color:#13302b">${esc(w.web)}</a>: ${plata(w.total, r.moneda)}</li>`)
+        .join("")}</ul>`
     : "";
+  const websTexto = webs.length ? ` El hotel hoy en cada web: ${webs.map((w) => `${w.web} ${plata(w.total, r.moneda)}`).join(", ")}.` : "";
   return {
     to: r.email,
-    subject: `Bajó tu hotel: ahorrá ${plata(ahorro, r.moneda)} en ${r.hotel}`,
-    text: `Encontramos tu misma categoría de habitación (${r.habitacion}) más barata en ${r.hotel}, del ${fecha(r.check_in)} al ${fecha(r.check_out)}: pagaste ${plata(r.precio_pagado, r.moneda)} y hoy está a ${plata(precio, r.moneda)} (${t.nombre}, ahorro de ${plata(ahorro, r.moneda)}, ${pct}%), con cancelación gratis. Podés cancelar tu reserva actual sin costo hasta el ${fecha(r.cancelacion_hasta)}. Cómo cambiar: 1) reservá la nueva opción; 2) confirmá que quedó confirmada; 3) cancelá la reserva anterior antes del ${fecha(r.cancelacion_hasta)}. Ver oferta: ${linkOferta}. Tu reserva: ${link}. La decisión es tuya.`,
+    subject: `Bajó tu hotel en ${o.donde}: ahorrá ${plata(ahorro, r.moneda)} en ${r.hotel}`,
+    text: `Encontramos tu estadía en ${r.hotel} (${r.habitacion}, del ${fecha(r.check_in)} al ${fecha(r.check_out)}) más barata en ${o.donde}: pagaste ${plata(r.precio_pagado, r.moneda)} y hoy está a ${plata(precio, r.moneda)}${o.habitacion ? ` (${o.habitacion})` : ""}, ahorro de ${plata(ahorro, r.moneda)} (${pct}%). ${cancel}. Podés cancelar tu reserva actual sin costo hasta el ${fecha(r.cancelacion_hasta)}. Cómo cambiar: 1) reservá la nueva opción en ${o.donde}; 2) confirmá que quedó confirmada; 3) cancelá la reserva anterior en ${r.plataforma} antes del ${fecha(r.cancelacion_hasta)}. Ver oferta: ${o.link}.${websTexto} Tu reserva: ${link}. La decisión es tuya.`,
     html: marco(
-      `Bajó el precio: podés ahorrar ${plata(ahorro, r.moneda)} (${pct}%)`,
+      `Bajó el precio en ${esc(o.donde)}: podés ahorrar ${plata(ahorro, r.moneda)} (${pct}%)`,
       `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">
 <tr><td></td><td style="padding:8px;color:#4d6b65">Tu reserva</td><td style="padding:8px;color:#4d6b65">Opción encontrada</td></tr>
+${fila("Dónde", esc(r.plataforma), esc(o.donde))}
 ${fila("Hotel y fechas", `${esc(r.hotel)}, ${fecha(r.check_in)}–${fecha(r.check_out)}`, "Mismas")}
-${fila("Habitación", esc(r.habitacion), esc(t.nombre))}
-${fila("Régimen", "—", esc(t.regimen ?? "—"))}
+${fila("Habitación", esc(r.habitacion), esc(o.habitacion ?? "La más barata de la web"))}
+${o.regimen ? fila("Régimen", "—", esc(o.regimen)) : ""}
 ${fila("Cancelación", `Gratis hasta el ${fecha(r.cancelacion_hasta)}`, cancel)}
 ${fila("Precio total", plata(r.precio_pagado, r.moneda), plata(precio, r.moneda))}
 </table>
-<p style="line-height:1.5"><b>Cómo cambiar:</b> (1) reservá la nueva opción; (2) confirmá que la reserva quedó confirmada; (3) cancelá la reserva anterior antes del <b>${fecha(r.cancelacion_hasta)}</b>.</p>
-<p style="line-height:1.5;font-size:13px;color:#4d6b65">Es la misma categoría, no necesariamente la misma habitación: revisá vista, camas y desayuno antes de reservar.</p>
-${referencia}
-<p>${boton(linkOferta, "Ver la oferta")} &nbsp; <a href="${link}" style="color:#13302b">Contanos qué hiciste</a></p>`,
+<p>${boton(o.link, `Ver la oferta en ${esc(o.donde)}`)}</p>
+<p style="line-height:1.5"><b>Cómo cambiar:</b> (1) reservá la nueva opción en ${esc(o.donde)}; (2) confirmá que la reserva quedó confirmada; (3) cancelá la reserva anterior en ${esc(r.plataforma)} antes del <b>${fecha(r.cancelacion_hasta)}</b>.</p>
+<p style="line-height:1.5;font-size:13px;color:#4d6b65">${o.habitacion ? "Es la misma categoría, no necesariamente la misma habitación: revisá vista, camas y desayuno antes de reservar." : "La web no informa la habitación: revisá que sea tu categoría y que tenga cancelación gratis antes de reservar."}</p>
+${enWebs}
+<p><a href="${link}" style="color:#13302b">Contanos qué hiciste</a></p>`,
     ),
   };
 }

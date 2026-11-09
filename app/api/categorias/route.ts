@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { CATEGORIAS, type Categoria } from "@/lib/categorias";
+import { CATEGORIAS, categoriaDe, type Categoria } from "@/lib/categorias";
 import { permitido } from "@/lib/limite";
-import { tarifas } from "@/lib/proveedores";
+import { habitacionesCatalogo, tarifas } from "@/lib/proveedores";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,20 @@ export async function GET(req: Request) {
   try {
     const lista = await tarifas({ hotelId, checkIn, checkOut, adultos, moneda });
     const grupos = new Map<Categoria, OpcionCategoria>();
+
+    // Si hoy no hay tarifas, igual mostramos las habitaciones que el hotel tiene en su catálogo
+    // (o todas las categorías), para que el viajero pueda registrar su reserva.
+    if (!lista.length) {
+      const nombres = await habitacionesCatalogo(hotelId).catch(() => []);
+      for (const n of nombres) {
+        const cat = categoriaDe(n);
+        const g = grupos.get(cat) ?? { categoria: cat, etiqueta: CATEGORIAS[cat], desde: null, moneda, ejemplos: [] };
+        if (!g.ejemplos.includes(n) && g.ejemplos.length < 3) g.ejemplos.push(n);
+        grupos.set(cat, g);
+      }
+      if (!grupos.size) for (const cat of Object.keys(CATEGORIAS) as Categoria[]) grupos.set(cat, { categoria: cat, etiqueta: CATEGORIAS[cat], desde: null, moneda, ejemplos: [] });
+    }
+
     for (const t of lista) {
       const g = grupos.get(t.categoria) ?? { categoria: t.categoria, etiqueta: CATEGORIAS[t.categoria], desde: null, moneda: t.moneda, ejemplos: [] };
       if (t.cancelacionGratis && (g.desde == null || t.total < g.desde)) g.desde = t.total;
@@ -38,7 +52,7 @@ export async function GET(req: Request) {
     }
     const orden = Object.keys(CATEGORIAS) as Categoria[];
     const categorias = [...grupos.values()].sort((a, b) => orden.indexOf(a.categoria) - orden.indexOf(b.categoria));
-    return NextResponse.json({ categorias });
+    return NextResponse.json({ categorias, sinPrecios: !lista.length });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "No pudimos traer las habitaciones de ese hotel. Probá de nuevo en un rato." }, { status: 502 });

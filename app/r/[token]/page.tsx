@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ALERT_MIN_PCT, BRAND, CHECK_EVERY_HOURS } from "@/lib/config";
 import { ahorroPct, diasHasta, fecha, fechaHora, noches, plata } from "@/lib/format";
 import { store } from "@/lib/store";
+import { linkWeb } from "@/lib/webs";
 import { darDeBaja, reactivar, responder } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -92,8 +93,8 @@ export default async function MiReserva({
         <section className="panel alert-panel">
           <h2>Podés ahorrar {plata(ahorro, r.moneda)}</h2>
           <p style={{ margin: 0 }}>
-            Encontramos tu misma categoría ({r.habitacion}) a {plata(r.precio_actual, r.moneda)}
-            {r.fuente_actual ? `: ${r.fuente_actual}` : ""}.{" "}
+            Encontramos tu estadía ({r.habitacion}) a {plata(r.precio_actual, r.moneda)}
+            {r.fuente_actual ? ` en ${r.fuente_actual}` : ""}.{" "}
             {r.cancelacion_gratis_actual === true
               ? "La oferta también tiene cancelación gratis."
               : "Revisá la política de cancelación de la oferta antes de reservar."}
@@ -108,7 +109,7 @@ export default async function MiReserva({
           {r.link_actual && (
             <div>
               <a className="btn go" href={r.link_actual} target="_blank" rel="noopener noreferrer">
-                Ver la oferta
+                Ver la oferta{r.fuente_actual ? ` en ${r.fuente_actual.split(" · ")[0]}` : ""}
               </a>
             </div>
           )}
@@ -170,9 +171,15 @@ export default async function MiReserva({
           </p>
           <div className="webs">
             {webs.map((w) => (
-              <span key={w.web} className="pill neutral">
+              <a
+                key={w.web}
+                className="pill neutral"
+                href={linkWeb(w.web, r.hotel, r.ciudad, r.check_in, r.check_out, r.huespedes)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {w.web} <span className="mono">{plata(w.total, r.moneda)}</span>
-              </span>
+              </a>
             ))}
           </div>
         </section>
