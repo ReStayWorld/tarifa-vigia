@@ -5,7 +5,7 @@ import { BRAND, CHECK_EVERY_HOURS } from "@/lib/config";
 import { ahorroPct, diasHasta, fecha, fechaHora, plata } from "@/lib/format";
 import { store } from "@/lib/store";
 import { modoDemo } from "@/lib/proveedores";
-import { chequearTodo, chequearUna, esAdmin, salir } from "./actions";
+import { chequearTodo, chequearUna, esAdmin, guardarTripadvisor, salir } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: `Panel · ${BRAND}`, robots: { index: false } };
@@ -162,6 +162,15 @@ export default async function Admin() {
                         </button>
                       </form>
                     )}
+                    <form action={guardarTripadvisor.bind(null, r.id)} className="stack" style={{ gap: 6, marginTop: 8, minWidth: 220 }}>
+                      <label className="muted" htmlFor={`ta-${r.id}`} style={{ fontSize: 12 }}>
+                        {r.xotelo_key ? `Precios por web: ${r.xotelo_key}` : "Link de TripAdvisor del hotel (para precios en Agoda, Booking…)"}
+                      </label>
+                      <input id={`ta-${r.id}`} name="tripadvisor" placeholder="https://www.tripadvisor.com/Hotel_Review-g…" style={{ minHeight: 36, padding: "6px 8px", fontSize: 13 }} />
+                      <button className="btn ghost small" type="submit">
+                        Guardar
+                      </button>
+                    </form>
                   </td>
                 </tr>
               );

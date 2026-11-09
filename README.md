@@ -14,7 +14,7 @@ Web del piloto de Nuevos Emprendimientos (ORT). El viajero registra su reserva: 
 
 De dónde salen los datos:
 - **LiteAPI** (gratis para consultar): catálogo mundial de hoteles y tarifas por habitación con su política de cancelación. Comparamos solo la **misma categoría** (Estándar, Superior, Deluxe, Junior Suite, Suite, Familiar, Apartamento, Villa, Compartida) y solo tarifas con **cancelación gratis**. La categoría sale del nombre de la habitación (`lib/categorias.ts`).
-- **Xotelo** (gratis, sin clave): precio más barato del hotel en Agoda, Booking.com, Trip.com, etc. Se muestra como referencia. Para encontrar el hotel en Xotelo hace falta `XOTELO_RAPIDAPI_KEY`; sin ella esa sección no aparece.
+- **Xotelo** (gratis): precio más barato del hotel en Agoda, Booking.com, Trip.com, etc. Se muestra como referencia. Necesita el código de TripAdvisor del hotel: el sistema lo busca solo con `XOTELO_RAPIDAPI_KEY` (en noviembre de 2026 ese buscador no devolvía resultados), y si no lo encuentra el equipo pega el link de TripAdvisor del hotel en `/admin`. Se aplica a todas las reservas de ese hotel.
 
 Reglas:
 - Alerta si la misma categoría con cancelación gratis está al menos `ALERT_MIN_PCT` (5%) más barata que lo pagado.
@@ -52,4 +52,4 @@ Ya está en https://tarifa-vigia.vercel.app (Vercel + Supabase, cuenta ReStayWor
 - Comparamos la **misma categoría**, no la habitación exacta: dos suites del mismo hotel pueden diferir en vista o camas. La alerta lo avisa.
 - El precio de LiteAPI es el de LiteAPI, no el de Agoda o Booking. El de Xotelo sí es el de cada web, pero es la habitación más barata del hotel y no aclara impuestos.
 - Las alertas van por mail (Gmail). WhatsApp necesita la API paga de WhatsApp Business.
-- LiteAPI y la búsqueda de Xotelo por RapidAPI todavía no se probaron con claves reales.
+- LiteAPI se probó con la clave sandbox; falta probar con la de producción.

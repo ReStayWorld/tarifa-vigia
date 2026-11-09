@@ -41,3 +41,20 @@ export async function chequearTodo() {
   await chequearTodas();
   revalidatePath("/admin");
 }
+
+/** El equipo pega el link de TripAdvisor del hotel para tener sus precios en Agoda, Booking, etc. */
+export async function guardarTripadvisor(id: string, f: FormData) {
+  if (!(await esAdmin())) return;
+  const link = String(f.get("tripadvisor") ?? "").trim();
+  const clave = link.match(/-(g\d+-d\d+)-/)?.[1] ?? (/^g\d+-d\d+$/.test(link) ? link : null);
+  if (!clave && link) return;
+  // Se aplica a todas las reservas del mismo hotel.
+  const r = await store().reservaPorId(id);
+  if (!r) return;
+  const mismas = (await store().reservas()).filter((x) => x.id === id || (r.hotel_id && x.hotel_id === r.hotel_id));
+  for (const x of mismas) {
+    await store().actualizarReserva(x.id, { xotelo_key: clave });
+    if (clave && x.estado === "activa") await chequearReserva({ ...x, xotelo_key: clave }, true);
+  }
+  revalidatePath("/admin");
+}

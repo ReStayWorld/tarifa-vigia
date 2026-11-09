@@ -49,7 +49,9 @@ export async function registrar(_: EstadoForm, f: FormData): Promise<EstadoForm>
   if (f.get("acepto") !== "on") return { error: "Necesitamos que aceptes las condiciones del piloto." };
 
   const token = randomBytes(16).toString("base64url");
-  const xotelo_key = await claveXotelo(d.hotel, d.ciudad);
+  // Si el equipo ya cargó este hotel en otra reserva, reusamos su clave de Xotelo.
+  const conocida = (await store().reservas()).find((r) => r.hotel_id === d.hotel_id && r.xotelo_key)?.xotelo_key;
+  const xotelo_key = conocida ?? (await claveXotelo(d.hotel, d.ciudad));
   const reserva = await store().crearReserva({ ...d, habitacion: CATEGORIAS[d.categoria], xotelo_key, token });
 
   try {
