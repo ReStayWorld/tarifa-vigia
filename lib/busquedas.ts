@@ -2,7 +2,8 @@ import "server-only";
 import { ALERT_MIN_PCT, CHECK_EVERY_HOURS } from "./config";
 import { enviar, mailBusquedaAlerta } from "./email";
 import { diasHasta, noches } from "./format";
-import { hotelesConPrecio } from "./proveedores";
+import { CATEGORIAS, esCategoria } from "./categorias";
+import { hotelesConPrecio, tarifas } from "./proveedores";
 import { store } from "./store";
 import type { Busqueda, ResultadoBusqueda } from "./types";
 import { distanciaKm } from "./zonas";
@@ -20,7 +21,8 @@ export async function chequearBusqueda(b: Busqueda, forzar = false): Promise<{ a
 
   try {
     const n = noches(b.check_in, b.check_out);
-    const hoteles = await hotelesConPrecio(b.pais, b.ciudad, { checkIn: b.check_in, checkOut: b.check_out, adultos: b.huespedes, moneda: b.moneda });
+    const consulta = { checkIn: b.check_in, checkOut: b.check_out, adultos: b.huespedes, moneda: b.moneda };
+    const hoteles = b.hotel_id ? await unHotel(b, consulta) : await hotelesConPrecio(b.pais, b.ciudad, consulta);
     const zona = b.zona_lat != null && b.zona_lon != null ? { lat: b.zona_lat, lon: b.zona_lon } : null;
 
     const resultados: ResultadoBusqueda[] = hoteles
@@ -63,4 +65,24 @@ export async function chequearTodasBusquedas() {
   const salida = [];
   for (const b of activas) salida.push({ busqueda: b.id, ...(await chequearBusqueda(b)) });
   return salida;
+}
+
+/** Búsqueda de un hotel en particular: su tarifa más barata, de la categoría pedida si hay una. */
+async function unHotel(b: Busqueda, consulta: { checkIn: string; checkOut: string; adultos: number; moneda: string }) {
+  const lista = (await tarifas({ ...consulta, hotelId: b.hotel_id! })).filter((t) => !b.categoria || t.categoria === b.categoria);
+  const mejor = lista.sort((x, y) => x.total - y.total)[0];
+  if (!mejor) return [];
+  return [
+    {
+      hotelId: b.hotel_id!,
+      nombre: b.hotel_nombre ?? "Hotel",
+      direccion: null,
+      estrellas: null,
+      lat: null,
+      lon: null,
+      total: mejor.total,
+      habitacion: b.categoria && esCategoria(b.categoria) ? `${CATEGORIAS[b.categoria]} · ${mejor.nombre}` : mejor.nombre,
+      cancelacionGratis: mejor.cancelacionGratis,
+    },
+  ];
 }

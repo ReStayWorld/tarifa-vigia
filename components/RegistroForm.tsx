@@ -225,7 +225,7 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
   );
 }
 
-function BuscadorHotel({ pais, elegido, onElegir }: { pais: string; elegido: HotelOpcion | null; onElegir: (h: HotelOpcion | null) => void }) {
+export function BuscadorHotel({ pais, elegido, onElegir }: { pais: string; elegido: HotelOpcion | null; onElegir: (h: HotelOpcion | null) => void }) {
   const id = useId();
   const [texto, setTexto] = useState("");
   const [opciones, setOpciones] = useState<HotelOpcion[]>([]);

@@ -204,7 +204,7 @@ export default async function Admin() {
               <tr key={b.id}>
                 <td>
                   <Link href={`/b/${b.token}`}>
-                    <b>{b.zona ? `${b.zona}, ${b.ciudad}` : b.ciudad}</b>
+                    <b>{b.hotel_nombre ?? (b.zona ? `${b.zona}, ${b.ciudad}` : b.ciudad)}</b>
                   </Link>
                   <div className="muted">{b.email}</div>
                 </td>

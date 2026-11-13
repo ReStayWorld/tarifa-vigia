@@ -1,5 +1,5 @@
 import "server-only";
-import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, GENIUS_DESCUENTO_PCT, REMINDER_DAYS } from "./config";
+import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, GENIUS_RANGO_PCT, REMINDER_DAYS } from "./config";
 import { enviar, mailAlerta, mailRecordatorio } from "./email";
 import { ahorroPct, diasHasta } from "./format";
 import { modoDemo, preciosPorWeb, tarifas, type Oferta } from "./proveedores";
@@ -49,7 +49,7 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
   try {
     const consulta = { checkIn: r.check_in, checkOut: r.check_out, adultos: r.huespedes, moneda: r.moneda };
     const [todas, websPublicos] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
-    const webs = conGenius(websPublicos, r.genius, GENIUS_DESCUENTO_PCT);
+    const webs = conGenius(websPublicos, r.genius, GENIUS_RANGO_PCT);
 
     // Misma categoría, con cualquier política de cancelación: lo que importa es que sea más barata.
     const ofertas: Oferta[] = todas
@@ -67,9 +67,10 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     // sirven para comparar únicamente si la reserva es de categoría estándar.
     if (r.categoria === "estandar") {
       for (const w of webs) {
+        // Con Genius usamos el precio con el descuento mínimo de su nivel (10%), para no prometer de más.
         ofertas.push({
-          total: w.total,
-          donde: w.web,
+          total: w.genius?.hasta ?? w.total,
+          donde: w.genius ? `${w.web} con Genius (estimado)` : w.web,
           link: linkWeb(w.web, r.hotel, r.ciudad, r.check_in, r.check_out, r.huespedes),
           habitacion: null,
           regimen: null,

@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { chequearBusqueda } from "@/lib/busquedas";
+import { esCategoria } from "@/lib/categorias";
 import { enviar, mailBusquedaBienvenida } from "@/lib/email";
 import { hoy } from "@/lib/format";
 import { store } from "@/lib/store";
@@ -27,6 +28,9 @@ export async function crearBusqueda(_: EstadoBusqueda, f: FormData): Promise<Est
   const d = {
     pais: texto(f, "pais").toUpperCase(),
     ciudad: texto(f, "ciudad"),
+    hotel_id: texto(f, "hotel_id") || null,
+    hotel_nombre: texto(f, "hotel") || null,
+    categoria: esCategoria(texto(f, "categoria")) ? texto(f, "categoria") : null,
     zona: texto(f, "zona") || null,
     zona_lat: coord(f, "zona_lat"),
     zona_lon: coord(f, "zona_lon"),
@@ -40,7 +44,14 @@ export async function crearBusqueda(_: EstadoBusqueda, f: FormData): Promise<Est
     email: texto(f, "email").toLowerCase(),
   };
 
-  if (!/^[A-Z]{2}$/.test(d.pais) || !d.ciudad) return { error: "Elegí el país y la ciudad." };
+  const porHotel = texto(f, "que") === "hotel";
+  if (porHotel) {
+    if (!d.hotel_id || !d.hotel_nombre) return { error: "Elegí el hotel de la lista que aparece al escribir el nombre." };
+    Object.assign(d, { zona: null, zona_lat: null, zona_lon: null, radio_km: null, estrellas_min: null });
+  } else {
+    Object.assign(d, { hotel_id: null, hotel_nombre: null, categoria: null });
+  }
+  if (!/^[A-Z]{2}$/.test(d.pais) || !d.ciudad) return { error: porHotel ? "Elegí el hotel de la lista." : "Elegí el país y la ciudad." };
   if (d.zona && (d.zona_lat == null || d.zona_lon == null)) return { error: "Elegí la zona de la lista que aparece al escribir." };
   if (!d.zona) Object.assign(d, { zona_lat: null, zona_lon: null, radio_km: null });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.check_in) || !/^\d{4}-\d{2}-\d{2}$/.test(d.check_out)) return { error: "Elegí las fechas." };

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CATEGORIAS, esCategoria } from "@/lib/categorias";
 import { BRAND, CHECK_EVERY_HOURS } from "@/lib/config";
 import { fecha, fechaHora, noches, plata } from "@/lib/format";
 import { store } from "@/lib/store";
@@ -17,7 +18,11 @@ export default async function MiBusqueda({ params, searchParams }: { params: Pro
   const b = await store().busquedaPorToken(token);
   if (!b) notFound();
 
-  const donde = b.zona ? `${b.zona}, ${b.ciudad} (hasta ${b.radio_km ?? 2} km)` : b.ciudad;
+  const donde = b.hotel_nombre
+    ? `${b.hotel_nombre}${b.categoria && esCategoria(b.categoria) ? ` · ${CATEGORIAS[b.categoria]}` : ""}, ${b.ciudad}`
+    : b.zona
+      ? `${b.zona}, ${b.ciudad} (hasta ${b.radio_km ?? 2} km)`
+      : b.ciudad;
 
   return (
     <main className="wrap narrow" style={{ display: "grid", gap: 24, paddingBlock: "8px 40px" }}>
@@ -52,10 +57,12 @@ export default async function MiBusqueda({ params, searchParams }: { params: Pro
       </div>
 
       <section className="panel">
-        <h3>Hoteles que cumplen hoy</h3>
+        <h3>{b.hotel_nombre ? "Precio de hoy" : "Hoteles que cumplen hoy"}</h3>
         {b.resultados.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            Todavía no hay hoteles con esas condiciones. Seguimos buscando y te escribimos apenas aparezca uno.
+            {b.hotel_nombre
+              ? `Todavía no baja de ${plata(b.tope_noche, b.moneda)} la noche. Seguimos mirando y te escribimos apenas baje.`
+              : "Todavía no hay hoteles con esas condiciones. Seguimos buscando y te escribimos apenas aparezca uno."}
           </p>
         ) : (
           <ul className="resultados">

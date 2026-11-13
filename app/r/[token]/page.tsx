@@ -170,7 +170,7 @@ export default async function MiReserva({
           <h3>El hotel en otras webs</h3>
           <p className="muted" style={{ margin: 0, fontSize: 14 }}>
             Precio más barato del hotel en cada web para tus fechas. Puede ser otra categoría de habitación.
-            {webs.some((w) => w.web.includes("Genius")) ? " En Booking.com estimamos tu descuento Genius (10%), que vale solo si el hotel participa." : ""}
+            {webs.some((w) => w.genius) ? " El precio con Genius es estimado según tu nivel y vale solo si el hotel participa: entrá a Booking con tu cuenta para ver el exacto." : ""}
           </p>
           <div className="webs">
             {webs.map((w) => (
@@ -182,6 +182,12 @@ export default async function MiReserva({
                 rel="noopener noreferrer"
               >
                 {w.web} <span className="mono">{plata(w.total, r.moneda)}</span>
+                {w.genius && (
+                  <span className="mono">
+                    {" "}
+                    · con Genius {plata(w.genius.desde, r.moneda)}–{plata(w.genius.hasta, r.moneda)}
+                  </span>
+                )}
               </a>
             ))}
           </div>

@@ -12,13 +12,20 @@ export function linkWeb(web: string, hotel: string, ciudad: string, checkIn: str
 }
 
 /**
- * Si el viajero tiene Genius, el precio que ve en Booking.com es más bajo que el público.
- * Aplicamos el descuento mínimo de su nivel (solo vale en hoteles que participan de Genius).
+ * Si el viajero tiene Genius, Booking.com le muestra un precio más bajo que el público.
+ * No lo podemos ver (depende de su cuenta), así que agregamos el rango estimado según su nivel
+ * sin tocar el precio público.
  */
-export function conGenius<T extends { web: string; total: number }>(webs: T[], genius: number | null, descuentoPct: Record<number, number>): T[] {
-  const pct = genius ? descuentoPct[genius] ?? 0 : 0;
-  if (!pct) return webs;
-  return webs
-    .map((w) => (w.web.toLowerCase().includes("booking") ? { ...w, web: `${w.web} con Genius (estimado)`, total: Math.round(w.total * (1 - pct / 100)) } : w))
-    .sort((a, b) => a.total - b.total);
+export function conGenius<T extends { web: string; total: number }>(
+  webs: T[],
+  genius: number | null,
+  rangos: Record<number, [number, number]>,
+): (T & { genius?: { desde: number; hasta: number } })[] {
+  const rango = genius ? rangos[genius] : undefined;
+  if (!rango) return webs;
+  return webs.map((w) =>
+    w.web.toLowerCase().includes("booking")
+      ? { ...w, genius: { desde: Math.round(w.total * (1 - rango[1] / 100)), hasta: Math.round(w.total * (1 - rango[0] / 100)) } }
+      : w,
+  );
 }

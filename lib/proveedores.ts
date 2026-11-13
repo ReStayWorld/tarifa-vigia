@@ -42,6 +42,7 @@ export interface Oferta {
 
 export interface PrecioWeb {
   web: string;
+  genius?: { desde: number; hasta: number }; // precio estimado con Genius (rango según nivel)
   total: number; // total de la estadía (Xotelo da por noche; lo multiplicamos)
 }
 

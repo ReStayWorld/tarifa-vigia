@@ -2,11 +2,16 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { crearBusqueda, type EstadoBusqueda } from "@/app/b/actions";
+import { BuscadorHotel } from "@/components/RegistroForm";
+import { CATEGORIAS } from "@/lib/categorias";
+import type { HotelOpcion } from "@/lib/proveedores";
 
 type Zona = { nombre: string; detalle: string; lat: number; lon: number };
 
 export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { codigo: string; nombre: string }[] }) {
   const [estado, accion, enviando] = useActionState<EstadoBusqueda, FormData>(crearBusqueda, { error: null });
+  const [que, setQue] = useState<"zona" | "hotel">("zona");
+  const [hotel, setHotel] = useState<HotelOpcion | null>(null);
   const [pais, setPais] = useState("UY");
   const [ciudades, setCiudades] = useState<string[] | null>(null);
   const [ciudad, setCiudad] = useState("");
@@ -18,6 +23,7 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
     setCiudades(null);
     setCiudad("");
     setZona(null);
+    setHotel(null);
     const ctrl = new AbortController();
     fetch(`/api/ciudades?pais=${pais}`, { signal: ctrl.signal })
       .then((r) => r.json())
@@ -32,8 +38,23 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
       <input type="hidden" name="zona_lat" value={zona?.lat ?? ""} />
       <input type="hidden" name="zona_lon" value={zona?.lon ?? ""} />
 
+      <input type="hidden" name="que" value={que} />
       <fieldset>
-        <legend>Dónde te querés quedar</legend>
+        <legend>Qué buscás</legend>
+        <div className="row">
+          <label className="check">
+            <input type="radio" name="que-ui" checked={que === "zona"} onChange={() => setQue("zona")} />
+            <span>Cualquier hotel en una ciudad o zona</span>
+          </label>
+          <label className="check">
+            <input type="radio" name="que-ui" checked={que === "hotel"} onChange={() => setQue("hotel")} />
+            <span>Un hotel en particular</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>{que === "hotel" ? "Qué hotel" : "Dónde te querés quedar"}</legend>
         <div className="grid2">
           <div className="field">
             <label htmlFor="b-pais">País</label>
@@ -45,6 +66,14 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
               ))}
             </select>
           </div>
+          {que === "hotel" ? (
+            <>
+              <input type="hidden" name="hotel_id" value={hotel?.id ?? ""} />
+              <input type="hidden" name="hotel" value={hotel?.nombre ?? ""} />
+              <input type="hidden" name="ciudad" value={hotel?.ciudad ?? ""} />
+              <BuscadorHotel pais={pais} elegido={hotel} onElegir={setHotel} />
+            </>
+          ) : (
           <div className="field">
             <label htmlFor="b-ciudad">Ciudad</label>
             <select
@@ -66,7 +95,21 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
               ))}
             </select>
           </div>
+          )}
         </div>
+        {que === "hotel" ? (
+          <div className="field">
+            <label htmlFor="b-categoria">Habitación</label>
+            <select id="b-categoria" name="categoria" defaultValue="">
+              <option value="">Cualquier habitación (la más barata)</option>
+              {Object.entries(CATEGORIAS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
         <div className="grid2">
           <BuscadorZona pais={pais} ciudad={ciudad} elegida={zona} onElegir={setZona} />
           <div className="field">
@@ -78,6 +121,7 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
             </select>
           </div>
         </div>
+        )}
       </fieldset>
 
       <fieldset>
@@ -108,7 +152,7 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
               <option value="UYU">Pesos ($U)</option>
             </select>
           </div>
-          <div className="field">
+          <div className="field" hidden={que === "hotel"}>
             <label htmlFor="b-estrellas">Estrellas</label>
             <select id="b-estrellas" name="estrellas_min" defaultValue="">
               <option value="">Cualquiera</option>

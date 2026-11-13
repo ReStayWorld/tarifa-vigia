@@ -55,7 +55,7 @@ export interface Chequeo {
   alerta: boolean;
   nota: string | null;
   busquedas: number;
-  detalle: { webs?: { web: string; total: number }[]; habitacion?: string } | null;
+  detalle: { webs?: { web: string; total: number; genius?: { desde: number; hasta: number } }[]; habitacion?: string } | null;
 }
 
 export type NuevaReserva = Omit<
@@ -98,6 +98,9 @@ export interface Busqueda {
   created_at: string;
   pais: string;
   ciudad: string;
+  hotel_id: string | null; // si busca un hotel en particular (LiteAPI)
+  hotel_nombre: string | null;
+  categoria: string | null; // categoría de habitación, o null para cualquiera
   zona: string | null; // barrio o zona elegido de la lista
   zona_lat: number | null;
   zona_lon: number | null;
