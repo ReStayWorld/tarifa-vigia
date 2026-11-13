@@ -10,3 +10,15 @@ export function linkWeb(web: string, hotel: string, ciudad: string, checkIn: str
   if (w.includes("hotels.com")) return `https://www.hotels.com/Hotel-Search?${p({ destination: q, startDate: checkIn, endDate: checkOut, adults: String(adultos) })}`;
   return `https://www.google.com/search?${p({ q: `${q} ${web}` })}`;
 }
+
+/**
+ * Si el viajero tiene Genius, el precio que ve en Booking.com es más bajo que el público.
+ * Aplicamos el descuento mínimo de su nivel (solo vale en hoteles que participan de Genius).
+ */
+export function conGenius<T extends { web: string; total: number }>(webs: T[], genius: number | null, descuentoPct: Record<number, number>): T[] {
+  const pct = genius ? descuentoPct[genius] ?? 0 : 0;
+  if (!pct) return webs;
+  return webs
+    .map((w) => (w.web.toLowerCase().includes("booking") ? { ...w, web: `${w.web} con Genius (estimado)`, total: Math.round(w.total * (1 - pct / 100)) } : w))
+    .sort((a, b) => a.total - b.total);
+}

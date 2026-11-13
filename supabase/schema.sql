@@ -7,6 +7,7 @@ create table if not exists reservas (
   hotel text not null,
   hotel_id text,
   xotelo_key text,
+  genius int,
   pais text,
   ciudad text not null,
   check_in date not null,

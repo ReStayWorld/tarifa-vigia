@@ -11,6 +11,7 @@ export interface Reserva {
   hotel: string;
   hotel_id: string; // id del hotel en LiteAPI
   xotelo_key: string | null; // id del hotel en Xotelo (TripAdvisor), para precios por web
+  genius: number | null; // nivel de Genius de Booking (0 = no tiene, null = no sabe)
   pais: string; // ISO-2
   ciudad: string;
   check_in: string; // YYYY-MM-DD

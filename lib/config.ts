@@ -9,6 +9,12 @@ export const CHECK_EVERY_HOURS = Number(process.env.CHECK_EVERY_HOURS ?? 2);
 /** Días antes del vencimiento de la cancelación gratis en que se manda un recordatorio. */
 export const REMINDER_DAYS = 2;
 
+/**
+ * Descuento de Genius de Booking que asumimos por nivel. Booking ofrece 10% en nivel 1,
+ * 10–15% en nivel 2 y 10–20% en nivel 3, solo en los hoteles que participan: usamos el mínimo.
+ */
+export const GENIUS_DESCUENTO_PCT: Record<number, number> = { 1: 10, 2: 10, 3: 10 };
+
 export const BASE_URL = (process.env.BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 export const TZ = "America/Montevideo";

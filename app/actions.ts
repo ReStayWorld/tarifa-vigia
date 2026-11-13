@@ -32,6 +32,7 @@ export async function registrar(_: EstadoForm, f: FormData): Promise<EstadoForm>
     cancelacion_hasta: texto(f, "cancelacion_hasta"),
     email: texto(f, "email").toLowerCase(),
     whatsapp: texto(f, "whatsapp") || null,
+    genius: ["0", "1", "2", "3"].includes(texto(f, "genius")) ? Number(texto(f, "genius")) : null,
     variante: texto(f, "variante") || null,
   };
 

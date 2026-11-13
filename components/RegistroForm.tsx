@@ -157,6 +157,20 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
             <input id="fecha_reserva" name="fecha_reserva" type="date" required max={hoy} />
           </div>
         </div>
+        <div className="field">
+          <label htmlFor="genius">¿Tenés Genius de Booking?</label>
+          <select id="genius" name="genius" defaultValue="">
+            <option value="" disabled>
+              Elegí una opción
+            </option>
+            <option value="0">No tengo Genius</option>
+            <option value="1">Sí, nivel 1</option>
+            <option value="2">Sí, nivel 2</option>
+            <option value="3">Sí, nivel 3</option>
+            <option value="nose">No sé</option>
+          </select>
+          <span className="hint">Lo ves en tu cuenta de Booking.com. Con Genius, los hoteles que participan te muestran precios más bajos, y los tenemos en cuenta al comparar.</span>
+        </div>
         <div className="grid2">
           <div className="field highlight">
             <label htmlFor="precio_pagado">Precio total de la estadía</label>

@@ -1,11 +1,11 @@
 import "server-only";
-import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, REMINDER_DAYS } from "./config";
+import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, GENIUS_DESCUENTO_PCT, REMINDER_DAYS } from "./config";
 import { enviar, mailAlerta, mailRecordatorio } from "./email";
 import { ahorroPct, diasHasta } from "./format";
 import { modoDemo, preciosPorWeb, tarifas, type Oferta } from "./proveedores";
 import { store } from "./store";
 import type { Reserva } from "./types";
-import { linkWeb } from "./webs";
+import { conGenius, linkWeb } from "./webs";
 
 export type Resultado = {
   reserva: string;
@@ -48,7 +48,8 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
 
   try {
     const consulta = { checkIn: r.check_in, checkOut: r.check_out, adultos: r.huespedes, moneda: r.moneda };
-    const [todas, webs] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
+    const [todas, websPublicos] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
+    const webs = conGenius(websPublicos, r.genius, GENIUS_DESCUENTO_PCT);
 
     // Misma categoría, con cualquier política de cancelación: lo que importa es que sea más barata.
     const ofertas: Oferta[] = todas

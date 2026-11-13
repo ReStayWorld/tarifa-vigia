@@ -92,7 +92,11 @@ export function mailAlerta(r: Reserva, o: Oferta, webs: PrecioWeb[]): Mail {
     ? `<p style="line-height:1.5;margin:16px 0 6px"><b>El hotel hoy en cada web</b> <span style="color:#4d6b65;font-size:13px">(habitación más barata, puede no ser tu categoría)</span></p>
 <ul style="margin:0 0 16px;padding-left:18px;line-height:1.7">${webs
         .map((w) => `<li><a href="${linkWeb(w.web, r.hotel, r.ciudad, r.check_in, r.check_out, r.huespedes)}" style="color:#13302b">${esc(w.web)}</a>: ${plata(w.total, r.moneda)}</li>`)
-        .join("")}</ul>`
+        .join("")}</ul>${
+        webs.some((w) => w.web.includes("Genius"))
+          ? `<p style="font-size:13px;color:#4d6b65;margin:0 0 16px">El precio de Booking.com incluye un descuento Genius estimado del 10%. Vale solo si el hotel participa de Genius.</p>`
+          : ""
+      }`
     : "";
   const websTexto = webs.length ? ` El hotel hoy en cada web: ${webs.map((w) => `${w.web} ${plata(w.total, r.moneda)}`).join(", ")}.` : "";
   return {
