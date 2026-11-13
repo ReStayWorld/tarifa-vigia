@@ -269,3 +269,88 @@ function demoTarifas(c: Consulta): Tarifa[] {
     ];
   });
 }
+
+// ---------- Búsquedas antes de reservar ----------
+
+export async function ciudades(pais: string): Promise<string[]> {
+  if (modoDemo()) return ({ UY: ["Colonia del Sacramento", "Montevideo", "Punta del Este"], BR: ["Florianópolis", "Río de Janeiro"], AR: ["Buenos Aires"] } as Record<string, string[]>)[pais] ?? [];
+  return conCache(`ciudades:${pais}`, 7 * 24 * 3_600_000, async () => {
+    const r = await lite<{ data?: { city?: string }[] }>(`/data/cities?${new URLSearchParams({ countryCode: pais })}`);
+    return [...new Set((r.data ?? []).map((c) => c.city?.trim()).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, "es"));
+  });
+}
+
+export interface HotelConPrecio {
+  hotelId: string;
+  nombre: string;
+  direccion: string | null;
+  estrellas: number | null;
+  lat: number | null;
+  lon: number | null;
+  total: number; // la tarifa más barata del hotel para la estadía
+  habitacion: string;
+  cancelacionGratis: boolean;
+}
+
+/** La tarifa más barata de cada hotel de una ciudad para esas fechas. */
+export async function hotelesConPrecio(pais: string, ciudad: string, c: Omit<Consulta, "hotelId">): Promise<HotelConPrecio[]> {
+  if (modoDemo()) return demoCiudad(pais, ciudad, c);
+  type Respuesta = LiteRates & {
+    hotels?: { id: string; name: string; address?: string; stars?: number; latitude?: number; longitude?: number }[];
+  };
+  const r = await lite<Respuesta>("/hotels/rates", {
+    method: "POST",
+    body: JSON.stringify({
+      cityName: ciudad,
+      countryCode: pais,
+      checkin: c.checkIn,
+      checkout: c.checkOut,
+      currency: c.moneda,
+      guestNationality: "UY",
+      occupancies: [{ adults: c.adultos }],
+      timeout: 20,
+      maxRatesPerHotel: 1,
+      includeHotelData: true,
+      limit: 1000,
+    }),
+  });
+  const datos = new Map((r.hotels ?? []).map((h) => [String(h.id), h]));
+  const salida: HotelConPrecio[] = [];
+  for (const h of r.data ?? []) {
+    const rates = (h.roomTypes ?? []).flatMap((rt) => (rt.rates ?? []).map((rate) => ({ rate, nombre: rate.name ?? rt.name ?? "Habitación" })));
+    const mejor = rates
+      .map((x) => ({ ...x, total: x.rate.retailRate?.total?.[0]?.amount ?? 0 }))
+      .filter((x) => x.total > 0)
+      .sort((a, b) => a.total - b.total)[0];
+    if (!mejor) continue;
+    const info = datos.get(String(h.hotelId));
+    salida.push({
+      hotelId: String(h.hotelId),
+      nombre: info?.name ?? "Hotel",
+      direccion: info?.address ?? null,
+      estrellas: info?.stars ?? null,
+      lat: info?.latitude ?? null,
+      lon: info?.longitude ?? null,
+      total: Math.round(mejor.total * 100) / 100,
+      habitacion: mejor.nombre,
+      cancelacionGratis: mejor.rate.cancellationPolicies?.refundableTag === "RFN",
+    });
+  }
+  return salida;
+}
+
+function demoCiudad(pais: string, ciudad: string, c: Omit<Consulta, "hotelId">): HotelConPrecio[] {
+  const n = noches(c.checkIn, c.checkOut);
+  const base: [string, string, number, number, number, number][] = [
+    ["Hotel Pocitos Plaza", "Juan Benito Blanco 640", 4, -34.9105, -56.1510, 95],
+    ["Punta Carretas Suites", "Ellauri 350", 4, -34.9215, -56.1590, 130],
+    ["Ciudad Vieja Boutique", "Sarandí 450", 3, -34.9068, -56.2065, 70],
+    ["Rambla Sur Hotel", "Rambla Gran Bretaña 1200", 5, -34.9120, -56.1800, 210],
+    ["Centro Express", "18 de Julio 1100", 3, -34.9050, -56.1900, 60],
+  ];
+  const semilla = createHash("sha1").update(pais + ciudad + c.checkIn + new Date().toISOString().slice(0, 13)).digest();
+  return base.map(([nombre, direccion, estrellas, lat, lon, precio], i) => {
+    const total = Math.round(precio * (0.85 + (semilla[i] / 255) * 0.3) * n * (c.moneda === "UYU" ? 40 : 1));
+    return { hotelId: `demo-b${i}`, nombre, direccion, estrellas, lat, lon, total, habitacion: "Standard Double Room", cancelacionGratis: i % 2 === 0 };
+  });
+}

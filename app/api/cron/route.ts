@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { chequearTodasBusquedas } from "@/lib/busquedas";
 import { chequearTodas } from "@/lib/vigia";
 
 export const dynamic = "force-dynamic";
@@ -15,5 +16,6 @@ export async function GET(req: Request) {
     acc[r.accion] = (acc[r.accion] ?? 0) + 1;
     return acc;
   }, {});
-  return NextResponse.json({ resumen, resultados });
+  const busquedas = await chequearTodasBusquedas();
+  return NextResponse.json({ resumen, resultados, busquedas });
 }

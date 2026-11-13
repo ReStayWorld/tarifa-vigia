@@ -22,7 +22,7 @@ export default async function Admin() {
   }
 
   const db = store();
-  const [reservas, chequeos] = await Promise.all([db.reservas(), db.chequeos()]);
+  const [reservas, chequeos, busquedas] = await Promise.all([db.reservas(), db.chequeos(), db.busquedas()]);
 
   // Métricas del experimento (sección 7.2 del Obligatorio 2).
   const chequeadas = new Set(chequeos.filter((c) => c.precio != null).map((c) => c.reserva_id));
@@ -175,6 +175,51 @@ export default async function Admin() {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Búsquedas antes de reservar</h2>
+      <div className="table-wrap">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Dónde</th>
+              <th>Fechas</th>
+              <th>Máximo por noche</th>
+              <th>Hoteles que cumplen</th>
+              <th>Avisados</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {busquedas.length === 0 && (
+              <tr>
+                <td colSpan={6} className="muted">
+                  Todavía no hay búsquedas. Se crean desde la página principal, en "Todavía no reservé" (/?modo=buscar).
+                </td>
+              </tr>
+            )}
+            {busquedas.map((b) => (
+              <tr key={b.id}>
+                <td>
+                  <Link href={`/b/${b.token}`}>
+                    <b>{b.zona ? `${b.zona}, ${b.ciudad}` : b.ciudad}</b>
+                  </Link>
+                  <div className="muted">{b.email}</div>
+                </td>
+                <td className="num">
+                  {fecha(b.check_in)}–{fecha(b.check_out)}
+                </td>
+                <td className="num">{plata(b.tope_noche, b.moneda)}</td>
+                <td className="num">{b.resultados.length}</td>
+                <td className="num">{Object.keys(b.avisados).length}</td>
+                <td>
+                  {b.estado}
+                  <div className="muted">{fechaHora(b.ultimo_chequeo)}</div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

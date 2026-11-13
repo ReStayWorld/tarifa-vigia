@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Chequeo, NuevaReserva, Reserva } from "./types";
+import type { Busqueda, Chequeo, NuevaBusqueda, NuevaReserva, Reserva } from "./types";
 
 /**
  * Acceso a datos. En producción usa Supabase; si no hay credenciales
@@ -17,6 +17,10 @@ export interface Store {
   actualizarReserva(id: string, cambios: Partial<Reserva>): Promise<void>;
   agregarChequeo(c: Omit<Chequeo, "id" | "created_at">): Promise<void>;
   chequeos(reservaId?: string): Promise<Chequeo[]>;
+  crearBusqueda(b: NuevaBusqueda): Promise<Busqueda>;
+  busquedaPorToken(token: string): Promise<Busqueda | null>;
+  busquedas(soloActivas?: boolean): Promise<Busqueda[]>;
+  actualizarBusqueda(id: string, cambios: Partial<Busqueda>): Promise<void>;
 }
 
 const DEFAULTS = {
@@ -36,7 +40,13 @@ const DEFAULTS = {
   motivo: null,
 } as const;
 
+const BUSQUEDA_DEFAULTS = { estado: "activa", ultimo_chequeo: null, resultados: [], avisados: {} } as const;
+
 // ---------- Supabase ----------
+
+function numerosBusqueda(b: Busqueda): Busqueda {
+  return { ...b, tope_noche: Number(b.tope_noche), radio_km: b.radio_km == null ? null : Number(b.radio_km) };
+}
 
 function numeros(r: Reserva): Reserva {
   // Postgres devuelve numeric como string.
@@ -96,12 +106,33 @@ function supabaseStore(sb: SupabaseClient): Store {
         ahorro_pct: c.ahorro_pct == null ? null : Number(c.ahorro_pct),
       }));
     },
+    async crearBusqueda(b) {
+      const { data, error } = await sb.from("busquedas").insert(b).select().single();
+      falla(error);
+      return numerosBusqueda(data as Busqueda);
+    },
+    async busquedaPorToken(token) {
+      const { data, error } = await sb.from("busquedas").select().eq("token", token).maybeSingle();
+      falla(error);
+      return data ? numerosBusqueda(data as Busqueda) : null;
+    },
+    async busquedas(soloActivas = false) {
+      let q = sb.from("busquedas").select().order("check_in", { ascending: true });
+      if (soloActivas) q = q.eq("estado", "activa");
+      const { data, error } = await q;
+      falla(error);
+      return (data as Busqueda[]).map(numerosBusqueda);
+    },
+    async actualizarBusqueda(id, cambios) {
+      const { error } = await sb.from("busquedas").update(cambios).eq("id", id);
+      falla(error);
+    },
   };
 }
 
 // ---------- Archivo local ----------
 
-type Archivo = { reservas: Reserva[]; chequeos: Chequeo[] };
+type Archivo = { reservas: Reserva[]; chequeos: Chequeo[]; busquedas?: Busqueda[] };
 const ARCHIVO = path.join(process.cwd(), ".data", "db.json");
 
 async function leer(): Promise<Archivo> {
@@ -152,6 +183,29 @@ function archivoStore(): Store {
       return (await leer()).chequeos
         .filter((c) => !reservaId || c.reserva_id === reservaId)
         .sort((x, y) => y.created_at.localeCompare(x.created_at));
+    },
+    async crearBusqueda(b) {
+      const a = await leer();
+      const nueva: Busqueda = { ...b, ...BUSQUEDA_DEFAULTS, resultados: [], avisados: {}, id: randomUUID(), created_at: new Date().toISOString() };
+      a.busquedas = [...(a.busquedas ?? []), nueva];
+      await escribir(a);
+      return nueva;
+    },
+    async busquedaPorToken(token) {
+      return (await leer()).busquedas?.find((b) => b.token === token) ?? null;
+    },
+    async busquedas(soloActivas = false) {
+      return ((await leer()).busquedas ?? [])
+        .filter((b) => !soloActivas || b.estado === "activa")
+        .sort((x, y) => x.check_in.localeCompare(y.check_in));
+    },
+    async actualizarBusqueda(id, cambios) {
+      const a = await leer();
+      const lista = a.busquedas ?? [];
+      const i = lista.findIndex((b) => b.id === id);
+      if (i >= 0) lista[i] = { ...lista[i], ...cambios };
+      a.busquedas = lista;
+      await escribir(a);
     },
   };
 }

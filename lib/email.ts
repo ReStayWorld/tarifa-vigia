@@ -2,7 +2,7 @@ import "server-only";
 import { BASE_URL, BRAND } from "./config";
 import { fecha, plata } from "./format";
 import type { Oferta, PrecioWeb } from "./proveedores";
-import type { Reserva } from "./types";
+import type { Busqueda, Reserva, ResultadoBusqueda } from "./types";
 import { linkWeb } from "./webs";
 
 type Mail = { to: string; subject: string; html: string; text: string };
@@ -135,6 +135,49 @@ export function mailRecordatorio(r: Reserva, dias: number): Mail {
       `<p style="line-height:1.5">${esc(r.hotel)}, cancelación gratis hasta el <b>${fecha(r.cancelacion_hasta)}</b>.</p>
 <p style="line-height:1.5">Hasta ahora no encontramos un precio que te ahorre lo suficiente. Seguimos mirando hasta esa fecha.</p>
 <p>${boton(link, "Ver mi reserva")}</p>`,
+    ),
+  };
+}
+
+function describirBusqueda(b: Busqueda) {
+  const donde = b.zona ? `${b.zona} (hasta ${b.radio_km ?? 2} km), ${b.ciudad}` : b.ciudad;
+  return `${donde}, del ${fecha(b.check_in)} al ${fecha(b.check_out)}, ${b.huespedes} adultos, hasta ${plata(b.tope_noche, b.moneda)} por noche${b.estrellas_min ? `, ${b.estrellas_min} estrellas o más` : ""}`;
+}
+
+export function mailBusquedaBienvenida(b: Busqueda): Mail {
+  const link = `${BASE_URL}/b/${b.token}`;
+  return {
+    to: b.email,
+    subject: `Te avisamos si aparece hotel en ${b.zona ?? b.ciudad}`,
+    text: `Guardamos tu búsqueda: ${describirBusqueda(b)}. Revisamos varias veces por día y te escribimos cuando aparezca un hotel que la cumpla. Seguila acá: ${link}`,
+    html: marco(
+      "Guardamos tu búsqueda",
+      `<p style="line-height:1.5">${esc(describirBusqueda(b))}.</p>
+<p style="line-height:1.5">Revisamos varias veces por día y te escribimos cuando aparezca un hotel que la cumpla.</p>
+<p>${boton(link, "Ver mi búsqueda")}</p>`,
+    ),
+  };
+}
+
+export function mailBusquedaAlerta(b: Busqueda, nuevos: ResultadoBusqueda[], total: number): Mail {
+  const link = `${BASE_URL}/b/${b.token}`;
+  const lista = nuevos.slice(0, 8);
+  const reservar = (h: ResultadoBusqueda) => linkWeb("Booking.com", h.nombre, b.ciudad, b.check_in, b.check_out, b.huespedes);
+  const filas = lista
+    .map(
+      (h) => `<tr><td style="padding:10px 8px;border-top:1px solid #dfe7e5"><b>${esc(h.nombre)}</b>${h.estrellas ? ` ${"★".repeat(Math.round(h.estrellas))}` : ""}<br><span style="color:#4d6b65;font-size:13px">${esc([h.direccion, h.distancia_km != null ? `a ${h.distancia_km} km de ${b.zona}` : null].filter(Boolean).join(" · "))}<br>${esc(h.habitacion)} · ${h.cancelacion_gratis ? "cancelación gratis" : "sin cancelación gratis"}</span></td><td style="padding:10px 8px;border-top:1px solid #dfe7e5;text-align:right;white-space:nowrap"><b>${plata(h.por_noche, b.moneda)}</b><br><span style="color:#4d6b65;font-size:13px">por noche</span><br><a href="${reservar(h)}" style="color:#13302b;font-size:13px">Buscar en Booking</a></td></tr>`,
+    )
+    .join("");
+  return {
+    to: b.email,
+    subject: `${nuevos.length === 1 ? "Apareció 1 hotel" : `Aparecieron ${nuevos.length} hoteles`} en ${b.zona ?? b.ciudad} por menos de ${plata(b.tope_noche, b.moneda)} la noche`,
+    text: `Encontramos ${nuevos.length} hotel(es) para tu búsqueda (${describirBusqueda(b)}): ${lista.map((h) => `${h.nombre} ${plata(h.por_noche, b.moneda)} por noche`).join("; ")}. Ver todos: ${link}`,
+    html: marco(
+      `${nuevos.length === 1 ? "Apareció un hotel" : `Aparecieron ${nuevos.length} hoteles`} para tu búsqueda`,
+      `<p style="line-height:1.5;color:#4d6b65">${esc(describirBusqueda(b))}.</p>
+<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">${filas}</table>
+<p style="line-height:1.5;font-size:13px;color:#4d6b65">Precios de nuestro proveedor de hoteles. En otras webs pueden variar un poco: confirmá el precio antes de reservar.</p>
+<p>${boton(link, total > lista.length ? `Ver los ${total} hoteles` : "Ver mi búsqueda")}</p>`,
     ),
   };
 }

@@ -374,3 +374,28 @@ footer.foot { padding-block: 40px 56px; color: var(--muted); font-size: 13px; bo
 .cat-body .mono { font-size: 13px; }
 
 .webs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Ya reservé / Todavía no reservé ---------- */
+
+.modos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modos button {
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  cursor: pointer;
+}
+.modos button span { font-size: 13px; color: var(--muted); }
+.modos button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.modos button:focus-visible { outline: 2.5px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 460px) { .modos { grid-template-columns: 1fr; } }
+
+.resultados { list-style: none; margin: 0; padding: 0; display: grid; }
+.resultados li { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.resultados li:first-child { border-top: 0; }
+.resultados .precio { text-align: right; white-space: nowrap; }

@@ -1,3 +1,5 @@
+import BusquedaForm from "@/components/BusquedaForm";
+import Modos from "@/components/Modos";
 import RegistroForm from "@/components/RegistroForm";
 import { ALERT_MIN_PCT } from "@/lib/config";
 import { hoy } from "@/lib/format";
@@ -12,8 +14,8 @@ const MENSAJES = {
   b: { titulo: "Reservá y olvidate.", bajada: "Nosotros vigilamos el precio por vos y te avisamos si podés pagar menos por la misma estadía." },
 };
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
-  const { v } = await searchParams;
+export default async function Home({ searchParams }: { searchParams: Promise<{ v?: string; modo?: string }> }) {
+  const { v, modo } = await searchParams;
   const variante = v === "a" || v === "b" ? v : Math.random() < 0.5 ? "a" : "b";
   const m = MENSAJES[variante];
 
@@ -90,12 +92,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ v
 
         <section className="block narrow" id="registro">
           <div className="stack">
-            <h2>Registrá tu reserva</h2>
+            <h2>Empezá</h2>
             <p className="muted" style={{ margin: 0 }}>
-              Tarda un minuto. Tené a mano el mail de confirmación.
+              Tarda un minuto.
             </p>
           </div>
-          <RegistroForm variante={variante} hoy={hoy()} paises={paises()} />
+          <Modos
+            inicial={modo === "buscar" ? "busqueda" : "reserva"}
+            reservado={<RegistroForm variante={variante} hoy={hoy()} paises={paises()} />}
+            buscar={<BusquedaForm hoy={hoy()} paises={paises()} />}
+          />
         </section>
       </div>
     </main>

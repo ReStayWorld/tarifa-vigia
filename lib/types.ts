@@ -77,3 +77,42 @@ export type NuevaReserva = Omit<
   | "confianza"
   | "motivo"
 >;
+
+/** Un hotel que cumple lo que pide una búsqueda. */
+export interface ResultadoBusqueda {
+  hotel_id: string;
+  nombre: string;
+  direccion: string | null;
+  estrellas: number | null;
+  por_noche: number;
+  total: number;
+  habitacion: string;
+  cancelacion_gratis: boolean;
+  distancia_km: number | null; // a la zona elegida, si hay
+}
+
+/** Búsqueda antes de reservar: "avisame si aparece algo en esta zona, estas fechas y menos de X por noche". */
+export interface Busqueda {
+  id: string;
+  token: string;
+  created_at: string;
+  pais: string;
+  ciudad: string;
+  zona: string | null; // barrio o zona elegido de la lista
+  zona_lat: number | null;
+  zona_lon: number | null;
+  radio_km: number | null;
+  check_in: string;
+  check_out: string;
+  huespedes: number;
+  tope_noche: number;
+  moneda: Moneda;
+  estrellas_min: number | null;
+  email: string;
+  estado: "activa" | "pausada" | "finalizada";
+  ultimo_chequeo: string | null;
+  resultados: ResultadoBusqueda[];
+  avisados: Record<string, number>; // hotel_id → precio por noche que ya avisamos
+}
+
+export type NuevaBusqueda = Omit<Busqueda, "id" | "created_at" | "estado" | "ultimo_chequeo" | "resultados" | "avisados">;
