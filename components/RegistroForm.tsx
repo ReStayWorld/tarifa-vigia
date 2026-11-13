@@ -127,7 +127,7 @@ export default function RegistroForm({ variante, hoy, paises }: { variante: stri
                   <b>{c.etiqueta}</b>
                   <span className="muted">{c.ejemplos.join(" · ")}</span>
                   {!sinPrecios && (
-                    <span className="mono">{c.desde != null ? `hoy desde ${plata(c.desde, c.moneda)} con cancelación gratis` : "hoy sin cancelación gratis"}</span>
+                    <span className="mono">{`hoy desde ${plata(c.desde, c.moneda)}`}</span>
                   )}
                 </span>
               </label>

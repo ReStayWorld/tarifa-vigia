@@ -66,7 +66,7 @@ export function mailBienvenida(r: Reserva): Mail {
     html: marco(
       `Ya estamos vigilando tu reserva`,
       `<p style="line-height:1.5">${esc(r.hotel)}, ${fecha(r.check_in)} al ${fecha(r.check_out)}. Pagaste <b>${plata(r.precio_pagado, r.moneda)}</b>.</p>
-<p style="line-height:1.5">Revisamos el precio cada 48 horas. Si aparece la misma estadía más barata antes del <b>${fecha(r.cancelacion_hasta)}</b> (tu último día de cancelación gratis), te escribimos.</p>
+<p style="line-height:1.5">Revisamos el precio varias veces por día. Si aparece la misma estadía más barata antes del <b>${fecha(r.cancelacion_hasta)}</b> (tu último día de cancelación gratis), te escribimos.</p>
 <p>${boton(link, "Ver mi reserva")}</p>
 <p style="font-size:13px;color:#4d6b65">Guardá este mail: el botón es tu acceso a la reserva.</p>`,
     ),
@@ -83,7 +83,9 @@ export function mailAlerta(r: Reserva, o: Oferta, webs: PrecioWeb[]): Mail {
       ? o.cancelacionHasta
         ? `Gratis hasta el ${fecha(o.cancelacionHasta)}`
         : "Cancelación gratis"
-      : "Verificá la política de cancelación antes de reservar";
+      : o.cancelacionGratis === false
+        ? "Sin cancelación gratis"
+        : "La web no la informa";
   const fila = (a: string, b: string, c: string) =>
     `<tr><td style="padding:8px;border-top:1px solid #dfe7e5;color:#4d6b65">${a}</td><td style="padding:8px;border-top:1px solid #dfe7e5">${b}</td><td style="padding:8px;border-top:1px solid #dfe7e5"><b>${c}</b></td></tr>`;
   const enWebs = webs.length
@@ -110,7 +112,7 @@ ${fila("Precio total", plata(r.precio_pagado, r.moneda), plata(precio, r.moneda)
 </table>
 <p>${boton(o.link, `Ver la oferta en ${esc(o.donde)}`)}</p>
 <p style="line-height:1.5"><b>Cómo cambiar:</b> (1) reservá la nueva opción en ${esc(o.donde)}; (2) confirmá que la reserva quedó confirmada; (3) cancelá la reserva anterior en ${esc(r.plataforma)} antes del <b>${fecha(r.cancelacion_hasta)}</b>.</p>
-<p style="line-height:1.5;font-size:13px;color:#4d6b65">${o.habitacion ? "Es la misma categoría, no necesariamente la misma habitación: revisá vista, camas y desayuno antes de reservar." : "La web no informa la habitación: revisá que sea tu categoría y que tenga cancelación gratis antes de reservar."}</p>
+<p style="line-height:1.5;font-size:13px;color:#4d6b65">${o.habitacion ? "Es la misma categoría, no necesariamente la misma habitación: revisá vista, camas y desayuno antes de reservar." : "La web no informa la habitación: revisá que sea tu categoría antes de reservar."}</p>
 ${enWebs}
 <p><a href="${link}" style="color:#13302b">Contanos qué hiciste</a></p>`,
     ),

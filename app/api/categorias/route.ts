@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export type OpcionCategoria = {
   categoria: Categoria;
   etiqueta: string;
-  desde: number | null; // precio más bajo con cancelación gratis
+  desde: number | null; // precio más bajo de la categoría
   moneda: string;
   ejemplos: string[]; // nombres de habitaciones de esa categoría
 };
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
     for (const t of lista) {
       const g = grupos.get(t.categoria) ?? { categoria: t.categoria, etiqueta: CATEGORIAS[t.categoria], desde: null, moneda: t.moneda, ejemplos: [] };
-      if (t.cancelacionGratis && (g.desde == null || t.total < g.desde)) g.desde = t.total;
+      if (g.desde == null || t.total < g.desde) g.desde = t.total;
       if (!g.ejemplos.includes(t.nombre) && g.ejemplos.length < 3) g.ejemplos.push(t.nombre);
       grupos.set(t.categoria, g);
     }

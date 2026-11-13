@@ -24,7 +24,7 @@ export function linkOferta(r: Reserva): string {
   return "https://www.google.com/travel/search?q=" + encodeURIComponent(`${r.hotel} ${r.ciudad}`);
 }
 
-/** Chequea una reserva: busca la misma categoría con cancelación gratis, la guarda y avisa si corresponde. */
+/** Chequea una reserva: busca la misma categoría más barata, la guarda y avisa si corresponde. */
 export async function chequearReserva(r: Reserva, forzar = false): Promise<Resultado> {
   const db = store();
   const base = { reserva: r.id, hotel: r.hotel };
@@ -50,16 +50,16 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
     const consulta = { checkIn: r.check_in, checkOut: r.check_out, adultos: r.huespedes, moneda: r.moneda };
     const [todas, webs] = await Promise.all([tarifas({ ...consulta, hotelId: r.hotel_id }), preciosPorWeb(r.xotelo_key, consulta)]);
 
-    // Regla del MVP: misma categoría y cancelación gratis (igual o mejor que la reserva original).
+    // Misma categoría, con cualquier política de cancelación: lo que importa es que sea más barata.
     const ofertas: Oferta[] = todas
-      .filter((t) => t.categoria === r.categoria && t.cancelacionGratis)
+      .filter((t) => t.categoria === r.categoria)
       .map((t) => ({
         total: t.total,
         donde: process.env.LITEAPI_BOOKING_URL ? "Nuestro sitio de reservas" : "Proveedor mayorista de hoteles (LiteAPI)",
         link: linkOferta(r),
         habitacion: t.nombre,
         regimen: t.regimen,
-        cancelacionGratis: true,
+        cancelacionGratis: t.cancelacionGratis,
         cancelacionHasta: t.cancelacionHasta,
       }));
     // Las webs (Agoda, Booking...) informan solo la habitación más barata del hotel:
@@ -88,10 +88,10 @@ export async function chequearReserva(r: Reserva, forzar = false): Promise<Resul
 
     const nota = !mejor
       ? todas.length
-        ? `No hay ${r.habitacion} con cancelación gratis disponible`
+        ? `No hay ${r.habitacion} disponible`
         : "Hoy no conseguimos precios de este hotel"
-      : mejor.cancelacionGratis === null
-        ? "Habitación más barata de la web: verificá categoría y cancelación"
+      : mejor.habitacion === null
+        ? "Habitación más barata de la web: verificá que sea tu categoría"
         : modoDemo()
           ? "Precio simulado (modo demo)"
           : null;

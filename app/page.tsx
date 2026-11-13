@@ -76,7 +76,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ v
             </li>
             <li>
               <h3>Vigilamos el precio</h3>
-              <p>Varias veces por día buscamos tu misma categoría de habitación, con cancelación gratis, y miramos cuánto está el hotel en Agoda, Booking y otras webs.</p>
+              <p>Varias veces por día buscamos tu misma categoría de habitación más barata y miramos cuánto está el hotel en Agoda, Booking y otras webs.</p>
             </li>
             <li>
               <h3>Te avisamos a tiempo</h3>

@@ -96,8 +96,10 @@ export default async function MiReserva({
             Encontramos tu estadía ({r.habitacion}) a {plata(r.precio_actual, r.moneda)}
             {r.fuente_actual ? ` en ${r.fuente_actual}` : ""}.{" "}
             {r.cancelacion_gratis_actual === true
-              ? "La oferta también tiene cancelación gratis."
-              : "Revisá la política de cancelación de la oferta antes de reservar."}
+              ? "La oferta tiene cancelación gratis."
+              : r.cancelacion_gratis_actual === false
+                ? "Ojo: la oferta no tiene cancelación gratis, así que una vez reservada no la vas a poder cancelar sin costo."
+                : "La web no informa la política de cancelación de la oferta."}
           </p>
           <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
             <li>Reservá la nueva opción y revisá vista, camas y desayuno: es la misma categoría, no necesariamente la misma habitación.</li>
