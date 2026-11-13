@@ -56,5 +56,10 @@ export async function guardarTripadvisor(id: string, f: FormData) {
     await store().actualizarReserva(x.id, { xotelo_key: clave });
     if (clave && x.estado === "activa") await chequearReserva({ ...x, xotelo_key: clave }, true);
   }
+  if (r.hotel_id) {
+    for (const b of (await store().busquedas()).filter((x) => x.hotel_id === r.hotel_id)) {
+      await store().actualizarBusqueda(b.id, { xotelo_key: clave });
+    }
+  }
   revalidatePath("/admin");
 }

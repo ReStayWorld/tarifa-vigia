@@ -173,10 +173,10 @@ export function mailBusquedaBienvenida(b: Busqueda): Mail {
 export function mailBusquedaAlerta(b: Busqueda, nuevos: ResultadoBusqueda[], total: number): Mail {
   const link = `${BASE_URL}/b/${b.token}`;
   const lista = nuevos.slice(0, 8);
-  const reservar = (h: ResultadoBusqueda) => linkWeb("Booking.com", h.nombre, b.ciudad, b.check_in, b.check_out, b.huespedes);
+  const reservar = (h: ResultadoBusqueda) => linkWeb(h.donde ?? "Booking.com", h.nombre, b.ciudad, b.check_in, b.check_out, b.huespedes);
   const filas = lista
     .map(
-      (h) => `<tr><td style="padding:10px 8px;border-top:1px solid #dfe7e5"><b>${esc(h.nombre)}</b>${h.estrellas ? ` ${"★".repeat(Math.round(h.estrellas))}` : ""}<br><span style="color:#4d6b65;font-size:13px">${esc([h.direccion, h.distancia_km != null ? `a ${h.distancia_km} km de ${b.zona}` : null].filter(Boolean).join(" · "))}<br>${esc(h.habitacion)} · ${h.cancelacion_gratis ? "cancelación gratis" : "sin cancelación gratis"}</span></td><td style="padding:10px 8px;border-top:1px solid #dfe7e5;text-align:right;white-space:nowrap"><b>${plata(h.por_noche, b.moneda)}</b><br><span style="color:#4d6b65;font-size:13px">por noche</span><br><a href="${reservar(h)}" style="color:#13302b;font-size:13px">Buscar en Booking</a></td></tr>`,
+      (h) => `<tr><td style="padding:10px 8px;border-top:1px solid #dfe7e5"><b>${esc(h.nombre)}</b>${h.estrellas ? ` ${"★".repeat(Math.round(h.estrellas))}` : ""}<br><span style="color:#4d6b65;font-size:13px">${esc([h.direccion, h.distancia_km != null ? `a ${h.distancia_km} km de ${b.zona}` : null].filter(Boolean).join(" · "))}<br>${esc(h.donde ? `${h.donde} · ${h.habitacion}` : `${h.habitacion} · ${h.cancelacion_gratis ? "cancelación gratis" : "sin cancelación gratis"}`)}</span></td><td style="padding:10px 8px;border-top:1px solid #dfe7e5;text-align:right;white-space:nowrap"><b>${plata(h.por_noche, b.moneda)}</b><br><span style="color:#4d6b65;font-size:13px">por noche</span><br><a href="${reservar(h)}" style="color:#13302b;font-size:13px">Buscar en ${esc(h.donde?.split(" con ")[0] ?? "Booking")}</a></td></tr>`,
     )
     .join("");
   return {

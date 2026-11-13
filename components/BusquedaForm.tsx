@@ -163,6 +163,21 @@ export default function BusquedaForm({ hoy, paises }: { hoy: string; paises: { c
           </div>
         </div>
         <span className="hint">El máximo es por noche, con impuestos, para toda la habitación.</span>
+        <div className="field">
+          <label htmlFor="b-genius">¿Tenés Genius de Booking?</label>
+          <select id="b-genius" name="genius" defaultValue="0">
+            <option value="0">No tengo Genius</option>
+            <option value="1">Sí, nivel 1</option>
+            <option value="2">Sí, nivel 2</option>
+            <option value="3">Sí, nivel 3</option>
+            <option value="nose">No sé</option>
+          </select>
+          <span className="hint">
+            {que === "hotel"
+              ? "Con Genius, Booking.com te muestra precios más bajos en los hoteles que participan: los tenemos en cuenta al comparar con tu máximo."
+              : "Lo usamos cuando buscás un hotel en particular. En la búsqueda por zona los precios son de nuestro proveedor de hoteles y no cambian con Genius."}
+          </span>
+        </div>
       </fieldset>
 
       <fieldset>

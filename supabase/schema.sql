@@ -78,6 +78,8 @@ create table if not exists busquedas (
   tope_noche numeric not null,
   moneda text not null check (moneda in ('USD', 'UYU')),
   estrellas_min int,
+  genius int,
+  xotelo_key text,
   email text not null,
   estado text not null default 'activa',
   ultimo_chequeo timestamptz,

@@ -7,6 +7,7 @@ import { chequearBusqueda } from "@/lib/busquedas";
 import { esCategoria } from "@/lib/categorias";
 import { enviar, mailBusquedaBienvenida } from "@/lib/email";
 import { hoy } from "@/lib/format";
+import { claveXotelo } from "@/lib/proveedores";
 import { store } from "@/lib/store";
 import type { Moneda } from "@/lib/types";
 
@@ -41,6 +42,8 @@ export async function crearBusqueda(_: EstadoBusqueda, f: FormData): Promise<Est
     tope_noche: num(f, "tope_noche") ?? 0,
     moneda: (texto(f, "moneda") === "UYU" ? "UYU" : "USD") as Moneda,
     estrellas_min: num(f, "estrellas_min") || null,
+    genius: ["0", "1", "2", "3"].includes(texto(f, "genius")) ? Number(texto(f, "genius")) : null,
+    xotelo_key: null as string | null,
     email: texto(f, "email").toLowerCase(),
   };
 
@@ -62,6 +65,14 @@ export async function crearBusqueda(_: EstadoBusqueda, f: FormData): Promise<Est
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return { error: "Revisá tu email: lo necesitamos para avisarte." };
   if (f.get("acepto") !== "on") return { error: "Necesitamos que aceptes las condiciones del piloto." };
 
+  // Si el equipo ya cargó el hotel de TripAdvisor en otra reserva o búsqueda, reusamos esa clave.
+  if (d.hotel_id) {
+    const db = store();
+    d.xotelo_key =
+      (await db.reservas()).find((r) => r.hotel_id === d.hotel_id && r.xotelo_key)?.xotelo_key ??
+      (await db.busquedas()).find((x) => x.hotel_id === d.hotel_id && x.xotelo_key)?.xotelo_key ??
+      (await claveXotelo(d.hotel_nombre ?? "", d.ciudad));
+  }
   const b = await store().crearBusqueda({ ...d, token: randomBytes(16).toString("base64url") });
   try {
     await enviar(mailBusquedaBienvenida(b));

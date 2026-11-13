@@ -291,6 +291,7 @@ export interface HotelConPrecio {
   total: number; // la tarifa más barata del hotel para la estadía
   habitacion: string;
   cancelacionGratis: boolean;
+  donde?: string; // web del precio; sin dato = LiteAPI
 }
 
 /** La tarifa más barata de cada hotel de una ciudad para esas fechas. */

@@ -77,7 +77,7 @@ export default async function MiBusqueda({ params, searchParams }: { params: Pro
                   </span>
                   <br />
                   <span className="muted" style={{ fontSize: 13 }}>
-                    {h.habitacion} · {h.cancelacion_gratis ? "cancelación gratis" : "sin cancelación gratis"}
+                    {h.donde ? `${h.donde} · ${h.habitacion}` : `${h.habitacion} · ${h.cancelacion_gratis ? "cancelación gratis" : "sin cancelación gratis"}`}
                   </span>
                 </span>
                 <span className="precio">
@@ -85,8 +85,8 @@ export default async function MiBusqueda({ params, searchParams }: { params: Pro
                   <br />
                   <span className="muted" style={{ fontSize: 13 }}>por noche</span>
                   <br />
-                  <a href={linkWeb("Booking.com", h.nombre, b.ciudad, b.check_in, b.check_out, b.huespedes)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
-                    Buscar en Booking
+                  <a href={linkWeb(h.donde ?? "Booking.com", h.nombre, b.ciudad, b.check_in, b.check_out, b.huespedes)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
+                    Buscar en {h.donde?.split(" con ")[0].replace(/\.com$/, "") ?? "Booking"}
                   </a>
                 </span>
               </li>

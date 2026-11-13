@@ -1,11 +1,12 @@
 import "server-only";
-import { ALERT_MIN_PCT, CHECK_EVERY_HOURS } from "./config";
+import { ALERT_MIN_PCT, CHECK_EVERY_HOURS, GENIUS_RANGO_PCT } from "./config";
 import { enviar, mailBusquedaAlerta } from "./email";
 import { diasHasta, noches } from "./format";
 import { CATEGORIAS, esCategoria } from "./categorias";
-import { hotelesConPrecio, tarifas } from "./proveedores";
+import { hotelesConPrecio, preciosPorWeb, tarifas, type HotelConPrecio } from "./proveedores";
 import { store } from "./store";
 import type { Busqueda, ResultadoBusqueda } from "./types";
+import { conGenius } from "./webs";
 import { distanciaKm } from "./zonas";
 
 /** Busca hoteles que cumplan la búsqueda y avisa por los nuevos o los que bajaron de precio. */
@@ -36,6 +37,7 @@ export async function chequearBusqueda(b: Busqueda, forzar = false): Promise<{ a
         habitacion: h.habitacion,
         cancelacion_gratis: h.cancelacionGratis,
         distancia_km: zona && h.lat != null && h.lon != null ? Math.round(distanciaKm(zona, { lat: h.lat, lon: h.lon }) * 10) / 10 : null,
+        ...(h.donde ? { donde: h.donde } : {}),
       }))
       .filter((h) => h.por_noche <= b.tope_noche)
       .filter((h) => !b.estrellas_min || (h.estrellas ?? 0) >= b.estrellas_min)
@@ -67,22 +69,35 @@ export async function chequearTodasBusquedas() {
   return salida;
 }
 
-/** Búsqueda de un hotel en particular: su tarifa más barata, de la categoría pedida si hay una. */
-async function unHotel(b: Busqueda, consulta: { checkIn: string; checkOut: string; adultos: number; moneda: string }) {
-  const lista = (await tarifas({ ...consulta, hotelId: b.hotel_id! })).filter((t) => !b.categoria || t.categoria === b.categoria);
-  const mejor = lista.sort((x, y) => x.total - y.total)[0];
-  if (!mejor) return [];
-  return [
-    {
-      hotelId: b.hotel_id!,
-      nombre: b.hotel_nombre ?? "Hotel",
-      direccion: null,
-      estrellas: null,
-      lat: null,
-      lon: null,
-      total: mejor.total,
-      habitacion: b.categoria && esCategoria(b.categoria) ? `${CATEGORIAS[b.categoria]} · ${mejor.nombre}` : mejor.nombre,
-      cancelacionGratis: mejor.cancelacionGratis,
-    },
-  ];
+/**
+ * Búsqueda de un hotel en particular: la tarifa más barata de LiteAPI (de la categoría pedida, si hay)
+ * y, si la búsqueda es de cualquier habitación o estándar, también la de cada web (Agoda, Booking...),
+ * con el descuento Genius estimado en Booking si el viajero lo tiene.
+ */
+async function unHotel(b: Busqueda, consulta: { checkIn: string; checkOut: string; adultos: number; moneda: string }): Promise<HotelConPrecio[]> {
+  const [todas, websPublicos] = await Promise.all([
+    tarifas({ ...consulta, hotelId: b.hotel_id! }).catch(() => []),
+    !b.categoria || b.categoria === "estandar" ? preciosPorWeb(b.xotelo_key, consulta) : Promise.resolve([]),
+  ]);
+  const base = { hotelId: b.hotel_id!, nombre: b.hotel_nombre ?? "Hotel", direccion: null, estrellas: null, lat: null, lon: null };
+  const candidatos: HotelConPrecio[] = todas
+    .filter((t) => !b.categoria || t.categoria === b.categoria)
+    .map((t) => ({
+      ...base,
+      total: t.total,
+      habitacion: b.categoria && esCategoria(b.categoria) ? `${CATEGORIAS[b.categoria]} · ${t.nombre}` : t.nombre,
+      cancelacionGratis: t.cancelacionGratis,
+    }));
+  for (const w of conGenius(websPublicos, b.genius, GENIUS_RANGO_PCT)) {
+    candidatos.push({
+      ...base,
+      // Con Genius tomamos el descuento mínimo de su nivel, para no avisar de más.
+      total: w.genius?.hasta ?? w.total,
+      habitacion: "Habitación más barata de la web",
+      cancelacionGratis: false,
+      donde: w.genius ? `${w.web} con Genius (estimado)` : w.web,
+    });
+  }
+  const mejor = candidatos.sort((x, y) => x.total - y.total)[0];
+  return mejor ? [mejor] : [];
 }

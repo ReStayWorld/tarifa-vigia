@@ -89,6 +89,7 @@ export interface ResultadoBusqueda {
   habitacion: string;
   cancelacion_gratis: boolean;
   distancia_km: number | null; // a la zona elegida, si hay
+  donde?: string; // web donde está ese precio; sin dato = nuestro proveedor de hoteles
 }
 
 /** Búsqueda antes de reservar: "avisame si aparece algo en esta zona, estas fechas y menos de X por noche". */
@@ -111,6 +112,8 @@ export interface Busqueda {
   tope_noche: number;
   moneda: Moneda;
   estrellas_min: number | null;
+  genius: number | null; // nivel de Genius de Booking (0 = no tiene, null = no sabe)
+  xotelo_key: string | null; // id del hotel en Xotelo, para precios por web (búsqueda de un hotel)
   email: string;
   estado: "activa" | "pausada" | "finalizada";
   ultimo_chequeo: string | null;
